@@ -248,20 +248,21 @@ def train():
                     log_dict["reconstr_img"] = wandb.Image(reconstr_img)
 
                     # Latent walk
-                    test_uS = test_dataset[0][1]
-                    test_uE = test_dataset[torch.randint(0, len(test_dataset), (1,))][1]
-                    z_start = vano.encoder(test_u.view(-1, 1, 48, 48))[0]  # Mean of q(z1 | x)
-                    z_end = vano.encoder(test_u.view(-1, 1, 48, 48))[0]  # Mean of q(z2 | x)
-                    print(z_start.shape, z_end.shape)
+                    u_start = test_dataset[0][1]
+                    u_end = test_dataset[torch.randint(0, len(test_dataset), (1,))][1]
+                    us = torch.stack([u_start, u_end]).view(-1, 1, 48, 48)
+                    zs = vano.encoder(us)[0]
+                    z_start = zs[0]
+                    z_end = zs[1]
                     z_walk = torch.stack([z_start + (z_end - z_start) * (i / 10) for i in range(10)], dim=0)
-                    print(z_walk.shape)
-                    test_u_walk = vano.decoder(vano.grid.expand(10, *vano.grid.shape[1:]), z_walk).squeeze()
-                    print(vano.grid.expand(10, *vano.grid.shape[1:]).shape)
-                    print(vano.decoder(vano.grid.expand(10, *vano.grid.shape[1:]), z_walk).shape)
-                    latent_walk = torch.cat([test_uS, test_u_walk, test_uE], axis=1).detach().cpu().numpy()
-                    print(latent_walk.shape)
+                    grids = vano.grid.expand(10, *vano.grid.shape[1:])
+                    test_u_walk = vano.decoder(grids, z_walk).squeeze()  # [10, 48, 48]
+                    u_null = torch.zeros(48, 48)
+                    first_row = torch.stack([u_start] + 8 * [u_null] + [u_end], dim=1) # [48, 480]
+                    # Display latent walk u's next to each other
+                    second_row = torch.stack(list(test_u_walk), dim=1)  # [48, 480]
+                    latent_walk = torch.cat([first_row, second_row], dim=0).detach().cpu().numpy()
                     log_dict["latent_walk"] = wandb.Image(latent_walk)
-                    print()
 
 
 
