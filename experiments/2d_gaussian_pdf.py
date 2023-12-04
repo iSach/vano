@@ -260,10 +260,10 @@ def train():
                     grids = vano.grid.expand(10, *vano.grid.shape[1:])
                     test_u_walk = vano.decoder(grids, z_walk).squeeze()  # [10, 48, 48]
                     u_null = torch.zeros(48, 48).to(device)
-                    first_row = torch.stack([u_start] + 8 * [u_null] + [u_end], dim=1) # [48, 480]
+                    first_row = torch.cat([u_start] + 8 * [u_null] + [u_end], dim=1) # [48, 480]
                     # Display latent walk u's next to each other
-                    second_row = torch.stack(list(test_u_walk), dim=1)  # [48, 480]
-                    latent_walk = torch.cat([first_row, second_row], dim=0).detach().cpu().numpy()
+                    second_row = torch.cat(list(test_u_walk), dim=1)  # [48, 480]
+                    latent_walk = torch.cat([first_row, second_row]).detach().cpu().numpy()
                     log_dict["latent_walk"] = wandb.Image(latent_walk)
 
                     vano.train()
