@@ -242,14 +242,27 @@ def train(i: int):
 
             u, u_hat = u.flatten(1), u_hat.flatten(1)
 
+
+
             # ELBO = E_p(eps)[log p(x | z=g(eps, x))] - KL(q(z | x) || p(z))
+            # ----------------------------------------------------------------
             # Reconstruction loss: E_Q(z|x)[1/2 ||D(z)||^2_L2 - <D(z), u>^~]
-            # 1/2 * ||D(z)||^2_L2
-            Dz_norm = 0.5 * torch.norm(u_hat, dim=1).pow(2)
-            # <D(z), u>^~ ~= sum_{i=1}^m D(z)(x_i) * u(x_i)
-            inner_prod = torch.sum(u_hat * u, dim=1)
-            reconstr_loss = (Dz_norm - inner_prod).mean()
+            # Sample S values of z
+            eps = torch.randn(S, *z.shape, device=z.device)
+            z_samples = mu + eps * torch.exp(0.5 * logvar)
+            # Compute D(z) for each z
+            u_hat_samples = vano.decoder(grid.expand(S, *grid.shape[1:]), z_samples)
+            reconstr_loss = 0
+            for i in range(S):
+                u_hat_sample = u_hat_samples[i].squeeze()
+                # 1/2 * ||D(z)||^2_L2
+                Dz_norm = 0.5 * torch.norm(u_hat_sample, dim=1).pow(2)
+                # <D(z), u>^~ ~= sum_{i=1}^m D(z)(x_i) * u(x_i)
+                inner_prod = torch.sum(u_hat_sample * u, dim=1)
+                reconstr_loss += (Dz_norm - inner_prod).mean()
+            reconstr_loss /= S
             #reconstr_loss = F.mse_loss(u_hat, u, reduction='none').sum(axis=1).mean()
+
             kl_loss = 0.5 * (mu ** 2 + logvar.exp() - logvar - 1).sum(axis=1).mean()
 
             loss = reconstr_loss + beta * kl_loss
