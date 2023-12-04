@@ -49,10 +49,7 @@ class Encoder(nn.Module):
         mean = out[:, :self.latent_dim]
         logvar = out[:, self.latent_dim:]
 
-        eps = torch.randn(u.shape[0], self.latent_dim, device=u.device)
-        z = mean + eps * torch.exp(0.5 * logvar)
-
-        return mean, logvar, z
+        return mean, logvar
 
 class Decoder(nn.Module):
     def __init__(self, latent_dim=32, input_dim=2, output_dim=1, device='cpu'):
@@ -114,7 +111,14 @@ class VANO(nn.Module):
         self.grid = torch.stack(torch.meshgrid(ls, ls, indexing='ij'), dim=-1).unsqueeze(0)
 
     def forward(self, u):
-        z, mean, logvar = self.encoder(u)
+        # Encode
+        mean, logvar = self.encoder(u)
+    
+        # Sample
+        eps = torch.randn(u.shape[0], self.latent_dim, device=u.device)
+        z = mean + eps * torch.exp(0.5 * logvar)
+
+        # Decode
         grids = self.grid.expand(u.shape[0], *self.grid.shape[1:])
         u_pred = self.decoder(grids, z)
 
@@ -164,6 +168,11 @@ def train():
     train_data = gen_datasets(N_train, device=device)
     train_dataset = torch.utils.data.TensorDataset(*train_data)
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=32, shuffle=True)
+
+    N_test = 128
+    test_data = gen_datasets(N_test, device=device)
+    test_dataset = torch.utils.data.TensorDataset(*test_data)
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=32, shuffle=True)
     
     # Training
     vano = VANO(device=device).to(device)
@@ -219,6 +228,20 @@ def train():
             optimizer.step()
             lr_scheduler.step()
 
+            if step % 1000000000 == 0:
+                # Reconstruction Image
+                test_u = test_dataset[0][1]
+                test_u_hat = vano(test_u.view(-1, 1, 48, 48))[3].squeeze()
+
+                # Latent walk
+                test_uS = test_dataset[0][1]
+                test_uE = test_dataset[torch.randint(0, len(test_dataset), (1,))][1]
+                z_start = vano.encoder(test_u.view(-1, 1, 48, 48))[0]  # Mean of q(z1 | x)
+                z_end = vano.encoder(test_u.view(-1, 1, 48, 48))[0]  # Mean of q(z2 | x)
+                z_walk = torch.stack([z_start + (z_end - z_start) * (i / 10) for i in range(10)], dim=0)
+                z_walk = z_walk.view(-1, 32)
+                test_u_walk = vano.decoder(vano.grid.expand(10, *vano.grid.shape[1:]), z_walk).squeeze()
+
             if wandb_enabled:
                 wandb.log({
                     "reconstr_loss": reconstr_loss.item(),
@@ -228,6 +251,9 @@ def train():
                 }, step=step)
 
             step += 1
+
+    # Save model
+    torch.save(vano.state_dict(), "vano.pt")
 
 if __name__ == "__main__":
     schedule(
