@@ -169,7 +169,7 @@ betas = [
 ]
 
 @job(
-    array=1,
+    array=len(betas),
     partition="a5000,tesla,quadro,2080ti",
     cpus=4,
     gpus=1,
@@ -216,7 +216,7 @@ def train(i: int):
     lr_scheduler = topt.lr_scheduler.StepLR(optimizer, step_size=lr_decay_every, gamma=lr_decay)
 
     # W&B
-    wandb_enabled = False
+    wandb_enabled = True
     if wandb_enabled:
         wandb.init(
             project="vano",
@@ -318,7 +318,7 @@ def train(i: int):
 if __name__ == "__main__":
     schedule(
         train,
-        backend="async",
+        backend="slurm",
         export="ALL",
         env=["export WANDB_SILENT=true"],
     )
