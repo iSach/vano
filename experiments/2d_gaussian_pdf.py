@@ -221,7 +221,7 @@ def train(i: int):
     # Parameters:
     S = 4  # Monte Carlo samples for evaluating reconstruction loss in ELBO (E_q(z | x) [log p(x | z)])
     #beta = 10e-5  # Weighting of KL divergence in ELBO
-    beta = configs[i][beta]
+    beta = configs[i]['beta']
     batch_size = 32
     num_iters = 20_000
 
