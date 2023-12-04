@@ -251,7 +251,7 @@ def train(i: int):
             eps = torch.randn(S, *z.shape, device=z.device)
             z_samples = mu + eps * torch.exp(0.5 * logvar)
             # Compute D(z) for each z
-            u_hat_samples = vano.decoder(grid.expand(S, *grid.shape[1:]), z_samples)
+            u_hat_samples = vano.decoder(grid[:1].expand(S, *grid.shape[1:]), z_samples)
             reconstr_loss = 0
             for i in range(S):
                 u_hat_sample = u_hat_samples[i].squeeze()
