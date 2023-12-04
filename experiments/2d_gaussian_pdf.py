@@ -103,6 +103,10 @@ class Decoder(nn.Module):
 class VANO(nn.Module):
     def __init__(self, latent_dim=32, input_dim=2, output_dim=1, device='cpu'):
         super(VANO, self).__init__()
+
+        self.latent_dim = latent_dim
+        self.input_dim = input_dim
+        self.output_dim = output_dim
     
         self.encoder = Encoder(latent_dim, input_dim, output_dim, device)
         self.decoder = Decoder(latent_dim, input_dim, output_dim, device)
