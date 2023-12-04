@@ -169,7 +169,7 @@ betas = [
 ]
 
 @job(
-    array=len(betas),
+    array=1,
     partition="a5000,tesla,quadro,2080ti",
     cpus=4,
     gpus=1,
@@ -216,7 +216,7 @@ def train(i: int):
     lr_scheduler = topt.lr_scheduler.StepLR(optimizer, step_size=lr_decay_every, gamma=lr_decay)
 
     # W&B
-    wandb_enabled = True
+    wandb_enabled = False
     if wandb_enabled:
         wandb.init(
             project="vano",
@@ -242,25 +242,21 @@ def train(i: int):
 
             u, u_hat = u.flatten(1), u_hat.flatten(1)
 
-
-
             # ELBO = E_p(eps)[log p(x | z=g(eps, x))] - KL(q(z | x) || p(z))
             # ----------------------------------------------------------------
             # Reconstruction loss: E_Q(z|x)[1/2 ||D(z)||^2_L2 - <D(z), u>^~]
             # Sample S values of z
             eps = torch.randn(S, *z.shape, device=z.device)
-            z_samples = mu + eps * torch.exp(0.5 * logvar)
-            # Compute D(z) for each z
-            u_hat_samples = vano.decoder(grid[:1].expand(S, *grid.shape[1:]), z_samples)
-            reconstr_loss = 0
-            for i in range(S):
-                u_hat_sample = u_hat_samples[i].squeeze()
-                # 1/2 * ||D(z)||^2_L2
-                Dz_norm = 0.5 * torch.norm(u_hat_sample, dim=1).pow(2)
-                # <D(z), u>^~ ~= sum_{i=1}^m D(z)(x_i) * u(x_i)
-                inner_prod = torch.sum(u_hat_sample * u, dim=1)
-                reconstr_loss += (Dz_norm - inner_prod).mean()
-            reconstr_loss /= S
+            z_samples = mu.unsqueeze(0) + eps * torch.exp(0.5 * logvar).unsqueeze(0)
+            z_samples = z_samples.view(S * batch_size, *z_samples.shape[2:])
+            u_hat_samples = vano.decoder(grid[:1].expand(z_samples.shape[0], *grid.shape[1:]), z_samples).squeeze()
+            u_hat_samples = u_hat_samples.view(S, batch_size, *u_hat_samples.shape[1:])
+            u_hat_samples = u_hat_samples.flatten(start_dim=-2)
+            # 1/2 * ||D(z)||^2_L2
+            Dz_norm = 0.5 * torch.norm(u_hat_samples, dim=-1).pow(2)
+            # <D(z), u>^~ ~= sum_{i=1}^m D(z)(x_i) * u(x_i)
+            inner_prod = (u_hat_samples * u[None, ...]).sum(axis=-1)
+            reconstr_loss = (Dz_norm - inner_prod).mean(axis=0).mean()
             #reconstr_loss = F.mse_loss(u_hat, u, reduction='none').sum(axis=1).mean()
 
             kl_loss = 0.5 * (mu ** 2 + logvar.exp() - logvar - 1).sum(axis=1).mean()
@@ -322,7 +318,7 @@ def train(i: int):
 if __name__ == "__main__":
     schedule(
         train,
-        backend="slurm",
+        backend="async",
         export="ALL",
         env=["export WANDB_SILENT=true"],
     )
