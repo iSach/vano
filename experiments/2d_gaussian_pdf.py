@@ -240,20 +240,21 @@ def train():
             }
 
             if step % 1000 == 0:
-                # Reconstruction Image
-                test_u = test_dataset[0][1]
-                test_u_hat = vano(test_u.view(-1, 1, 48, 48))[3].squeeze()
-                reconstr_img = torch.cat([test_u, test_u_hat], axis=1).cpu().numpy()
-                log_dict["reconstr_img"] = wandb.Image(reconstr_img)
+                with torch.no_grad():
+                    # Reconstruction Image
+                    test_u = test_dataset[0][1]
+                    test_u_hat = vano(test_u.view(-1, 1, 48, 48))[3].squeeze()
+                    reconstr_img = torch.cat([test_u, test_u_hat], axis=1).detach().cpu().numpy()
+                    log_dict["reconstr_img"] = wandb.Image(reconstr_img)
 
-                # Latent walk
-                #test_uS = test_dataset[0][1]
-                #test_uE = test_dataset[torch.randint(0, len(test_dataset), (1,))][1]
-                #z_start = vano.encoder(test_u.view(-1, 1, 48, 48))[0]  # Mean of q(z1 | x)
-                #z_end = vano.encoder(test_u.view(-1, 1, 48, 48))[0]  # Mean of q(z2 | x)
-                #z_walk = torch.stack([z_start + (z_end - z_start) * (i / 10) for i in range(10)], dim=0)
-                #z_walk = z_walk.view(-1, 32)
-                #test_u_walk = vano.decoder(vano.grid.expand(10, *vano.grid.shape[1:]), z_walk).squeeze()
+                    # Latent walk
+                    #test_uS = test_dataset[0][1]
+                    #test_uE = test_dataset[torch.randint(0, len(test_dataset), (1,))][1]
+                    #z_start = vano.encoder(test_u.view(-1, 1, 48, 48))[0]  # Mean of q(z1 | x)
+                    #z_end = vano.encoder(test_u.view(-1, 1, 48, 48))[0]  # Mean of q(z2 | x)
+                    #z_walk = torch.stack([z_start + (z_end - z_start) * (i / 10) for i in range(10)], dim=0)
+                    #z_walk = z_walk.view(-1, 32)
+                    #test_u_walk = vano.decoder(vano.grid.expand(10, *vano.grid.shape[1:]), z_walk).squeeze()
 
             if wandb_enabled:
                 wandb.log(log_dict, step=step)
