@@ -242,7 +242,7 @@ def train():
             if step % 100 == 0:
                 with torch.no_grad():
                     vano.eval()
-                    
+
                     # Reconstruction Image
                     test_u = test_dataset[0][1]
                     test_u_hat = vano(test_u.view(-1, 1, 48, 48))[3].squeeze()
@@ -251,7 +251,7 @@ def train():
 
                     # Latent walk
                     u_start = test_dataset[0][1]
-                    u_end = test_dataset[torch.randint(0, len(test_dataset), (1,))].squeeze()[1]
+                    u_end = test_dataset[torch.randint(0, len(test_dataset), (1,))][1].squeeze()
                     us = torch.stack([u_start, u_end]).view(-1, 1, 48, 48)
                     zs = vano.encoder(us)[0]
                     z_start = zs[0]
