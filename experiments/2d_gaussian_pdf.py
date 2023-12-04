@@ -150,7 +150,26 @@ def gen_datasets(N=1, device='cpu'):
 
     return x.to(device), y.exp().to(device)
 
+betas = [
+    10e-5,
+    5*10e-5,
+    10e-4,
+    5*10e-4,
+    10e-3,
+    5*10e-3,
+    10e-2,
+    5*10e-2,
+    10e-1,
+    5*10e-1,
+    1,
+    5,
+    10,
+    100,
+    1000,
+]
+
 @job(
+    array=len(betas),
     partition="a5000,tesla,quadro,2080ti",
     cpus=4,
     gpus=1,
@@ -158,7 +177,7 @@ def gen_datasets(N=1, device='cpu'):
     time="24:00:00",
     name="vano",
 )
-def train():
+def train(i: int):
     # Device
     if torch.cuda.is_available():
         device = 'cuda'
@@ -184,7 +203,8 @@ def train():
 
     # Parameters:
     S = 4  # Monte Carlo samples for evaluating reconstruction loss in ELBO (E_q(z | x) [log p(x | z)])
-    beta = 10e-5  # Weighting of KL divergence in ELBO
+    #beta = 10e-5  # Weighting of KL divergence in ELBO
+    beta = betas[i]
     batch_size = 32
     num_iters = 20_000
 
@@ -200,7 +220,7 @@ def train():
     if wandb_enabled:
         wandb.init(
             project="vano",
-            name="vano",
+            name=beta,
             config={
                 "S": S,
                 "beta": beta,
@@ -208,7 +228,8 @@ def train():
                 "num_iters": num_iters,
                 "lr": lr,
                 "lr_decay": lr_decay,
-                "lr_decay_every": lr_decay_every
+                "lr_decay_every": lr_decay_every,
+                "experiment-name": "beta_val",
             }
         )
 
