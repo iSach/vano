@@ -259,7 +259,7 @@ def train():
                     z_walk = torch.stack([z_start + (z_end - z_start) * (i / 10) for i in range(10)], dim=0)
                     grids = vano.grid.expand(10, *vano.grid.shape[1:])
                     test_u_walk = vano.decoder(grids, z_walk).squeeze()  # [10, 48, 48]
-                    u_null = torch.zeros(48, 48)
+                    u_null = torch.zeros(48, 48).to(device)
                     first_row = torch.stack([u_start] + 8 * [u_null] + [u_end], dim=1) # [48, 480]
                     # Display latent walk u's next to each other
                     second_row = torch.stack(list(test_u_walk), dim=1)  # [48, 480]
