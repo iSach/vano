@@ -152,37 +152,8 @@ def gen_datasets(N=1, device='cpu'):
 
 configs = [
     {
-        "beta": 1.0,
-        "kl": False,
-    },
-    {
-        "beta": 1.0,
-        "kl": True,
-    },
-    {
-        "beta": 3.0,
-        "kl": True,
-    },
-    {
-        "beta": 5.0,
-        "kl": True,
-    },
-    {
-        "beta": 10.0,
-        "kl": True,
-    },
-    {
-        "beta": 20.0,
-        "kl": True,
-    },
-    {
-        "beta": 50.0,
-        "kl": True,
-    },
-    {
-        "beta": 100.0,
-        "kl": True,
-    },
+        "S": i
+    } for i in range(1, 100)
 ]
 
 @job(
@@ -219,9 +190,9 @@ def train(i: int):
     vano.train()
 
     # Parameters:
-    S = 4  # Monte Carlo samples for evaluating reconstruction loss in ELBO (E_q(z | x) [log p(x | z)])
+    S = configs[i]['S']  # Monte Carlo samples for evaluating reconstruction loss in ELBO (E_q(z | x) [log p(x | z)])
     #beta = 10e-5  # Weighting of KL divergence in ELBO
-    beta = configs[i]['beta']
+    beta = 1.0
     batch_size = 32
     num_iters = 50_000
 
@@ -237,7 +208,7 @@ def train(i: int):
     if wandb_enabled:
         wandb.init(
             project="vano",
-            name=f"B={beta} (kl={configs[i]['kl']})",
+            name=f"S={S}",
             config={
                 "S": S,
                 "beta": beta,
@@ -246,7 +217,7 @@ def train(i: int):
                 "lr": lr,
                 "lr_decay": lr_decay,
                 "lr_decay_every": lr_decay_every,
-                "experiment-name": "kl_toggle2",
+                "experiment-name": "MC_S_value",
             }
         )
 
@@ -278,9 +249,7 @@ def train(i: int):
 
             kl_loss = 0.5 * (mu ** 2 + logvar.exp() - logvar - 1).sum(axis=1).mean()
 
-            loss = reconstr_loss
-            if configs[i]["kl"]:
-                loss += beta * kl_loss
+            loss = reconstr_loss + beta * kl_loss
             
             optimizer.zero_grad()
             loss.backward()            
