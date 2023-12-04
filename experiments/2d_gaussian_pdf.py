@@ -150,26 +150,43 @@ def gen_datasets(N=1, device='cpu'):
 
     return x.to(device), y.exp().to(device)
 
-betas = [
-    10e-5,
-    5*10e-5,
-    10e-4,
-    5*10e-4,
-    10e-3,
-    5*10e-3,
-    10e-2,
-    5*10e-2,
-    10e-1,
-    5*10e-1,
-    1,
-    5,
-    10,
-    100,
-    1000,
+configs = [
+    {
+        "beta": 10e-5,
+        "kl": False,
+    },
+    {
+        "beta": 10e-3,
+        "kl": False,
+    },
+    {
+        "beta": 10e-2,
+        "kl": False,
+    },
+    {
+        "beta": 10e-1,
+        "kl": False,
+    },
+    {
+        "beta": 10e-5,
+        "kl": True,
+    },
+    {
+        "beta": 10e-3,
+        "kl": True,
+    },
+    {
+        "beta": 10e-2,
+        "kl": True,
+    },
+    {
+        "beta": 10e-1,
+        "kl": True,
+    },
 ]
 
 @job(
-    array=len(betas),
+    array=len(configs),
     partition="a5000,tesla,quadro,2080ti",
     cpus=4,
     gpus=1,
@@ -204,7 +221,7 @@ def train(i: int):
     # Parameters:
     S = 4  # Monte Carlo samples for evaluating reconstruction loss in ELBO (E_q(z | x) [log p(x | z)])
     #beta = 10e-5  # Weighting of KL divergence in ELBO
-    beta = betas[i]
+    beta = configs[i][beta]
     batch_size = 32
     num_iters = 20_000
 
@@ -220,7 +237,7 @@ def train(i: int):
     if wandb_enabled:
         wandb.init(
             project="vano",
-            name=f"{beta}",
+            name=f"{beta} (kl={configs[i]['kl']})",
             config={
                 "S": S,
                 "beta": beta,
@@ -229,7 +246,7 @@ def train(i: int):
                 "lr": lr,
                 "lr_decay": lr_decay,
                 "lr_decay_every": lr_decay_every,
-                "experiment-name": "beta_val",
+                "experiment-name": "kl_toggle",
             }
         )
 
@@ -261,7 +278,9 @@ def train(i: int):
 
             kl_loss = 0.5 * (mu ** 2 + logvar.exp() - logvar - 1).sum(axis=1).mean()
 
-            loss = reconstr_loss + beta * kl_loss
+            loss = reconstr_loss
+            if configs[i]["kl"]:
+                loss += beta * kl_loss
             
             optimizer.zero_grad()
             loss.backward()            
@@ -279,14 +298,14 @@ def train(i: int):
                 with torch.no_grad():
                     vano.eval()
 
-                    # Reconstruction Image
+                    # ----- Reconstruction Image -----
                     test_u = test_dataset[0][1]
                     test_u_hat = vano(test_u.view(-1, 1, 48, 48))[3].squeeze()
                     reconstr_img = torch.cat([test_u, test_u_hat], axis=1).detach().cpu().numpy()
                     reconstr_img = plt.get_cmap('viridis')(reconstr_img)[:, :, :3]
                     log_dict["reconstr_img"] = wandb.Image(reconstr_img)
 
-                    # Latent walk
+                    # ----- Latent walk -----
                     u_start = test_dataset[0][1]
                     u_end = test_dataset[torch.randint(0, len(test_dataset), (1,))][1].squeeze()
                     us = torch.stack([u_start, u_end]).view(-1, 1, 48, 48)
@@ -303,6 +322,18 @@ def train(i: int):
                     latent_walk = torch.cat([first_row, second_row]).detach().cpu().numpy()
                     latent_walk = plt.get_cmap('viridis')(latent_walk)[:, :, :3]
                     log_dict["latent_walk"] = wandb.Image(latent_walk)
+
+                    # ----- Random sampling -----
+                    img_grid_size = 10
+                    # P(z) = N(0, I)
+                    z = torch.randn(img_grid_size**2, vano.latent_dim).to(device)
+                    grids = vano.grid.expand(img_grid_size**2, *vano.grid.shape[1:])
+                    us = vano.decoder(grids, z).squeeze()
+                    us = us.view(img_grid_size, img_grid_size, 48, 48)
+                    us = us.permute(0, 2, 1, 3).reshape(img_grid_size * 48, img_grid_size * 48)
+                    rand_samples = us.detach().cpu().numpy()
+                    rand_samples = plt.get_cmap('viridis')(rand_samples)[:, :, :3]
+                    log_dict["rand_samples"] = wandb.Image(rand_samples)
 
                     vano.train()
 
