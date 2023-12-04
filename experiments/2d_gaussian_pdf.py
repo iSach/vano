@@ -111,7 +111,7 @@ class VANO(nn.Module):
         self.decoder = Decoder(latent_dim, input_dim, output_dim, device)
 
         ls = torch.linspace(0, 1, 48).to(device)
-        self.grid = torch.stack(torch.meshgrid(ls, ls), dim=-1).unsqueeze(0)
+        self.grid = torch.stack(torch.meshgrid(ls, ls, indexing='ij'), dim=-1).unsqueeze(0)
 
     def forward(self, u):
         z, mean, logvar = self.encoder(u)
@@ -132,7 +132,7 @@ def gen_datasets(N=1, device='cpu'):
     sigma = 0.01 + dists.Uniform(0, 0.1).sample((N,))
     
     dim_range = torch.linspace(0, 1, 48)
-    grid = torch.stack(torch.meshgrid(dim_range, dim_range), dim=-1)
+    grid = torch.stack(torch.meshgrid(dim_range, dim_range, indexing='ij'), dim=-1)
 
     x = torch.stack([grid] * N, dim=0)
     y = torch.stack([dists.MultivariateNormal(
@@ -183,7 +183,7 @@ def train():
     lr_scheduler = topt.lr_scheduler.StepLR(optimizer, step_size=lr_decay_every, gamma=lr_decay)
 
     # W&B
-    wandb_enabled = False
+    wandb_enabled = True
     if wandb_enabled:
         wandb.init(
             project="vano",
@@ -222,7 +222,7 @@ def train():
             if wandb_enabled:
                 wandb.log({
                     "reconstr_loss": reconstr_loss.item(),
-                    "kl_loss": kl_loss.item(),
+                    #"kl_loss": kl_loss.item(),
                     "loss": loss.item(),
                     "lr": lr_scheduler.get_last_lr()[0]
                 }, step=step)
@@ -232,7 +232,7 @@ def train():
 if __name__ == "__main__":
     schedule(
         train,
-        backend="async",
+        backend="slurm",
         export="ALL",
         env=["export WANDB_SILENT=true"],
     )
