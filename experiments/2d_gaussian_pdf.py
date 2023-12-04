@@ -209,7 +209,7 @@ def train():
             u, u_hat = u.flatten(1), u_hat.flatten(1)
 
             # ELBO = E_p(eps)[log p(x | z=g(eps, x))] - KL(q(z | x) || p(z))
-            reconstr_loss = F.binary_cross_entropy(u_hat, u, reduction='none').sum(axis=1).mean()
+            reconstr_loss = F.mse_loss(u_hat, u, reduction='none').sum(axis=1).mean()
             #kl_loss = 0.5 * (mu ** 2 + logvar.exp() - logvar - 1).sum(axis=1).mean()
 
             loss = reconstr_loss #+ beta * kl_loss
