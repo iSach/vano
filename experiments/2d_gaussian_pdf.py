@@ -220,10 +220,10 @@ def train(i: int):
     if wandb_enabled:
         wandb.init(
             project="vano",
-            name=beta,
+            name=f"{beta}",
             config={
                 "S": S,
-                "beta": f"{beta}",
+                "beta": beta,
                 "batch_size": batch_size,
                 "num_iters": num_iters,
                 "lr": lr,
