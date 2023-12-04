@@ -222,7 +222,13 @@ def train():
             u, u_hat = u.flatten(1), u_hat.flatten(1)
 
             # ELBO = E_p(eps)[log p(x | z=g(eps, x))] - KL(q(z | x) || p(z))
-            reconstr_loss = F.mse_loss(u_hat, u, reduction='none').sum(axis=1).mean()
+            # Reconstruction loss: E_Q(z|x)[1/2 ||D(z)||^2_L2 - <D(z), u>^~]
+            # 1/2 * ||D(z)||^2_L2
+            Dz_norm = 0.5 * torch.norm(u_hat, dim=1).pow(2)
+            # <D(z), u>^~ ~= sum_{i=1}^m D(z)(x_i) * u(x_i)
+            inner_prod = torch.sum(u_hat * u, dim=1)
+            reconstr_loss = (Dz_norm - inner_prod).mean()
+            #reconstr_loss = F.mse_loss(u_hat, u, reduction='none').sum(axis=1).mean()
             kl_loss = 0.5 * (mu ** 2 + logvar.exp() - logvar - 1).sum(axis=1).mean()
 
             loss = reconstr_loss + beta * kl_loss
