@@ -183,25 +183,26 @@ def train():
     lr_scheduler = topt.lr_scheduler.StepLR(optimizer, step_size=lr_decay_every, gamma=lr_decay)
 
     # W&B
-    wandb.init(
-        project="vano",
-        name="vano",
-        config={
-            "S": S,
-            "beta": beta,
-            "batch_size": batch_size,
-            "num_iters": num_iters,
-            "lr": lr,
-            "lr_decay": lr_decay,
-            "lr_decay_every": lr_decay_every
-        }
-    )
+    wandb_enabled = False
+    if wandb_enabled:
+        wandb.init(
+            project="vano",
+            name="vano",
+            config={
+                "S": S,
+                "beta": beta,
+                "batch_size": batch_size,
+                "num_iters": num_iters,
+                "lr": lr,
+                "lr_decay": lr_decay,
+                "lr_decay_every": lr_decay_every
+            }
+        )
 
     step = 0
     num_epochs = num_iters // len(train_loader)
     for epoch in range(num_epochs):
         for grid, u in train_loader:
-            
             mu, logvar, z, u_hat = vano(u.view(-1, 1, 48, 48))
             u_hat = u_hat.squeeze()
 
@@ -209,30 +210,29 @@ def train():
 
             # ELBO = E_p(eps)[log p(x | z=g(eps, x))] - KL(q(z | x) || p(z))
             reconstr_loss = F.binary_cross_entropy(u_hat, u, reduction='none').sum(axis=1).mean()
-            kl_loss = 0.5 * (mu ** 2 + logvar.exp() - logvar - 1).sum(axis=1).mean()
+            #kl_loss = 0.5 * (mu ** 2 + logvar.exp() - logvar - 1).sum(axis=1).mean()
 
-            loss = reconstr_loss + beta * kl_loss
+            loss = reconstr_loss #+ beta * kl_loss
             
             optimizer.zero_grad()
             loss.backward()            
             optimizer.step()
+            lr_scheduler.step()
 
-            wandb.log({
-                "reconstr_loss": reconstr_loss.item(),
-                "kl_loss": kl_loss.item(),
-                "loss": loss.item(),
-                "lr": lr_scheduler.get_last_lr()[0]
-            }, step=step)
-            
-            if step % 1000 == 0:
-                lr_scheduler.step()
+            if wandb_enabled:
+                wandb.log({
+                    "reconstr_loss": reconstr_loss.item(),
+                    "kl_loss": kl_loss.item(),
+                    "loss": loss.item(),
+                    "lr": lr_scheduler.get_last_lr()[0]
+                }, step=step)
 
             step += 1
 
 if __name__ == "__main__":
     schedule(
         train,
-        backend="slurm",
+        backend="async",
         export="ALL",
         env=["export WANDB_SILENT=true"],
     )
