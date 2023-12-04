@@ -152,35 +152,35 @@ def gen_datasets(N=1, device='cpu'):
 
 configs = [
     {
-        "beta": 10e-5,
+        "beta": 1.0,
         "kl": False,
     },
     {
-        "beta": 10e-3,
-        "kl": False,
-    },
-    {
-        "beta": 10e-2,
-        "kl": False,
-    },
-    {
-        "beta": 10e-1,
-        "kl": False,
-    },
-    {
-        "beta": 10e-5,
+        "beta": 1.0,
         "kl": True,
     },
     {
-        "beta": 10e-3,
+        "beta": 3.0,
         "kl": True,
     },
     {
-        "beta": 10e-2,
+        "beta": 5.0,
         "kl": True,
     },
     {
-        "beta": 10e-1,
+        "beta": 10.0,
+        "kl": True,
+    },
+    {
+        "beta": 20.0,
+        "kl": True,
+    },
+    {
+        "beta": 50.0,
+        "kl": True,
+    },
+    {
+        "beta": 100.0,
         "kl": True,
     },
 ]
@@ -223,7 +223,7 @@ def train(i: int):
     #beta = 10e-5  # Weighting of KL divergence in ELBO
     beta = configs[i]['beta']
     batch_size = 32
-    num_iters = 20_000
+    num_iters = 50_000
 
     # Exponential decay of every 1000 iterations by 0.9
     lr = 1e-3
@@ -237,7 +237,7 @@ def train(i: int):
     if wandb_enabled:
         wandb.init(
             project="vano",
-            name=f"{beta} (kl={configs[i]['kl']})",
+            name=f"B={beta} (kl={configs[i]['kl']})",
             config={
                 "S": S,
                 "beta": beta,
@@ -246,7 +246,7 @@ def train(i: int):
                 "lr": lr,
                 "lr_decay": lr_decay,
                 "lr_decay_every": lr_decay_every,
-                "experiment-name": "kl_toggle",
+                "experiment-name": "kl_toggle2",
             }
         )
 
