@@ -241,6 +241,8 @@ def train():
 
             if step % 100 == 0:
                 with torch.no_grad():
+                    vano.eval()
+                    
                     # Reconstruction Image
                     test_u = test_dataset[0][1]
                     test_u_hat = vano(test_u.view(-1, 1, 48, 48))[3].squeeze()
@@ -263,6 +265,8 @@ def train():
                     second_row = torch.stack(list(test_u_walk), dim=1)  # [48, 480]
                     latent_walk = torch.cat([first_row, second_row], dim=0).detach().cpu().numpy()
                     log_dict["latent_walk"] = wandb.Image(latent_walk)
+
+                    vano.train()
 
 
             if wandb_enabled:
