@@ -223,9 +223,9 @@ def train():
 
             # ELBO = E_p(eps)[log p(x | z=g(eps, x))] - KL(q(z | x) || p(z))
             reconstr_loss = F.mse_loss(u_hat, u, reduction='none').sum(axis=1).mean()
-            #kl_loss = 0.5 * (mu ** 2 + logvar.exp() - logvar - 1).sum(axis=1).mean()
+            kl_loss = 0.5 * (mu ** 2 + logvar.exp() - logvar - 1).sum(axis=1).mean()
 
-            loss = reconstr_loss #+ beta * kl_loss
+            loss = reconstr_loss + beta * kl_loss
             
             optimizer.zero_grad()
             loss.backward()            
@@ -234,7 +234,7 @@ def train():
 
             log_dict = {
                 "reconstr_loss": reconstr_loss.item(),
-                #"kl_loss": kl_loss.item(),
+                "kl_loss": kl_loss.item(),
                 "loss": loss.item(),
                 "lr": lr_scheduler.get_last_lr()[0]
             }
