@@ -223,7 +223,7 @@ def train(i: int):
             name=beta,
             config={
                 "S": S,
-                "beta": beta,
+                "beta": f"{beta}",
                 "batch_size": batch_size,
                 "num_iters": num_iters,
                 "lr": lr,
