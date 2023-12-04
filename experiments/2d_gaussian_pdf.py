@@ -239,7 +239,7 @@ def train():
                 "lr": lr_scheduler.get_last_lr()[0]
             }
 
-            if step % 1000 == 0:
+            if step % 100 == 0:
                 with torch.no_grad():
                     # Reconstruction Image
                     test_u = test_dataset[0][1]
@@ -249,7 +249,7 @@ def train():
 
                     # Latent walk
                     u_start = test_dataset[0][1]
-                    u_end = test_dataset[torch.randint(0, len(test_dataset), (1,))][1]
+                    u_end = test_dataset[torch.randint(0, len(test_dataset), (1,))].squeeze()[1]
                     us = torch.stack([u_start, u_end]).view(-1, 1, 48, 48)
                     zs = vano.encoder(us)[0]
                     z_start = zs[0]
@@ -263,7 +263,6 @@ def train():
                     second_row = torch.stack(list(test_u_walk), dim=1)  # [48, 480]
                     latent_walk = torch.cat([first_row, second_row], dim=0).detach().cpu().numpy()
                     log_dict["latent_walk"] = wandb.Image(latent_walk)
-
 
 
             if wandb_enabled:
