@@ -247,6 +247,7 @@ def train():
                     test_u = test_dataset[0][1]
                     test_u_hat = vano(test_u.view(-1, 1, 48, 48))[3].squeeze()
                     reconstr_img = torch.cat([test_u, test_u_hat], axis=1).detach().cpu().numpy()
+                    reconstr_img = plt.get_cmap('viridis')(reconstr_img)[:, :, :3]
                     log_dict["reconstr_img"] = wandb.Image(reconstr_img)
 
                     # Latent walk
@@ -264,6 +265,7 @@ def train():
                     # Display latent walk u's next to each other
                     second_row = torch.cat(list(test_u_walk), dim=1)  # [48, 480]
                     latent_walk = torch.cat([first_row, second_row]).detach().cpu().numpy()
+                    latent_walk = plt.get_cmap('viridis')(latent_walk)[:, :, :3]
                     log_dict["latent_walk"] = wandb.Image(latent_walk)
 
                     vano.train()
