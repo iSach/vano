@@ -326,7 +326,7 @@ def gen_datasets(N=1, device='cpu'):
 configs = [
     {
         "decoder": d
-    } for d in DECODERS.values()
+    } for d in DECODERS.keys()
 ]
 
 @job(
