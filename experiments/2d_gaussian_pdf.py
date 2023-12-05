@@ -74,7 +74,7 @@ class Decoder(nn.Module):
         self.input_dim = input_dim
         self.output_dim = output_dim
 
-    def __expand_z(self, x, z):
+    def _expand_z(self, x, z):
         """
         Expands z to match x's shape.
 
@@ -99,7 +99,7 @@ class Decoder(nn.Module):
         x : [batch_size, ..., in_dim] tensor of spatial locations
         z : [batch_size, latent_dim] tensor of latent representations
         """
-        return self.decode(x, self.__expand_z(x, z))
+        return self.decode(x, self._expand_z(x, z))
 
     # This function is likely to change with a proper
     # implementation of Pos. Encodings
@@ -163,7 +163,7 @@ class NeRFDecoder(Decoder):
         # the operations are still performed on the expanded z.
         z = self.mlp_z(z)
         # z is [32, 32], reshape to [32, 48, 48, 32]
-        z = self.__expand_z(x, z)
+        z = self._expand_z(x, z)
         xz = torch.cat([x, z], dim=-1)
         xz = self.joint_mlp(xz)
 
@@ -301,9 +301,9 @@ class AttentionDecoder(Decoder):
 
 DECODERS = {
     "nerf": NeRFDecoder,
-    "linear": LinearDecoder,
-    "cat1st": Cat1stDecoder,
-    "distribcat": DistribCatDecoder,
+    #"linear": LinearDecoder,
+    #"cat1st": Cat1stDecoder,
+    #"distribcat": DistribCatDecoder,
     #"hypernet": HyperNetDecoder,
     #"attention": AttentionDecoder
 }
