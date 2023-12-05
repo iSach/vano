@@ -14,6 +14,20 @@ from dawgz import job, after, ensure, schedule
 
 import wandb
 
+# TODO:
+# - Linear Decoder: sum z_i * MLP(x_i)
+# - Concat at each layer Decoder (Attention beats concatenation for conditioning neural fields) (Left of Fig. 4)
+# - Hyper-network decoder (Attention beats concatenation for conditioning neural fields) (Middle of Fig. 4)
+#       -- This is not tried in VANO
+#       -- z -> MLP -> [weights for MLP(x)]
+# - Attention Decoder (Attention beats concatenation for conditioning neural fields) (Right of Fig. 4)
+#       -- This is not tried in VANO
+# - 
+
+# NB:
+# - VAE uses multi-head attention between z [Hz x Wz x Dz] and (x, d)
+#   each attention block receives a different channel (Dz) 
+
 class Encoder(nn.Module):
     def __init__(self, latent_dim=32, input_dim=2, output_dim=1, device='cpu'):
         super(Encoder, self).__init__()
@@ -51,9 +65,10 @@ class Encoder(nn.Module):
 
         return mean, logvar
 
-class Decoder(nn.Module):
+# NeRF-like decoder
+class NeRFDecoder(nn.Module):
     def __init__(self, latent_dim=32, input_dim=2, output_dim=1, device='cpu'):
-        super(Decoder, self).__init__()
+        super(NeRFDecoder, self).__init__()
 
         self.latent_dim = latent_dim
         self.input_dim = input_dim
@@ -99,7 +114,31 @@ class Decoder(nn.Module):
         xz = self.joint_mlp(xz)
 
         return xz
+    
+class LinearDecoder(nn.Module):
+    pass
 
+class Cat1stDecoder(nn.Module):
+    pass
+
+class DistribCatDecoder(nn.Module):
+    pass
+
+class HyperNetDecoder(nn.Module):
+    pass
+
+class AttentionDecoder(nn.Module):
+    pass
+
+
+DECODERS = {
+    "nerf": NeRFDecoder,
+    "linear": LinearDecoder,
+    "cat1st": Cat1stDecoder,
+    "distribcat": DistribCatDecoder,
+    "hypernet": HyperNetDecoder,
+    "attention": AttentionDecoder
+}
 
 class VANO(nn.Module):
     def __init__(self, latent_dim=32, input_dim=2, output_dim=1, device='cpu'):
@@ -110,7 +149,7 @@ class VANO(nn.Module):
         self.output_dim = output_dim
     
         self.encoder = Encoder(latent_dim, input_dim, output_dim, device)
-        self.decoder = Decoder(latent_dim, input_dim, output_dim, device)
+        self.decoder = NeRFDecoder(latent_dim, input_dim, output_dim, device)
 
         ls = torch.linspace(0, 1, 48).to(device)
         self.grid = torch.stack(torch.meshgrid(ls, ls, indexing='ij'), dim=-1).unsqueeze(0)
