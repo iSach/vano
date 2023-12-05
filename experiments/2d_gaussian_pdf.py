@@ -17,19 +17,19 @@ import wandb
 # TODO:
 # - Linear Decoder: sum z_i * MLP(x_i)
 # - Concat at each layer Decoder (Attention beats concatenation for conditioning neural fields) (Left of Fig. 4)
+# - (Periodic and other) Positional encodings (VANO)
 # - Hyper-network decoder (Attention beats concatenation for conditioning neural fields) (Middle of Fig. 4)
 #       -- This is not tried in VANO
 #       -- z -> MLP -> [weights for MLP(x)]
 # - Attention Decoder (Attention beats concatenation for conditioning neural fields) (Right of Fig. 4)
 #       -- This is not tried in VANO
-# - 
 
 # NB:
 # - VAE uses multi-head attention between z [Hz x Wz x Dz] and (x, d)
 #   each attention block receives a different channel (Dz) 
 
 class Encoder(nn.Module):
-    def __init__(self, latent_dim=32, input_dim=2, output_dim=1, device='cpu'):
+    def __init__(self, latent_dim=32, input_dim=2, output_dim=1):
         super(Encoder, self).__init__()
 
         self.latent_dim = latent_dim
@@ -64,15 +64,29 @@ class Encoder(nn.Module):
         logvar = out[:, self.latent_dim:]
 
         return mean, logvar
-
-# NeRF-like decoder
-class NeRFDecoder(nn.Module):
-    def __init__(self, latent_dim=32, input_dim=2, output_dim=1, device='cpu'):
-        super(NeRFDecoder, self).__init__()
+    
+class Decoder(nn.Module):
+    def __init__(self, latent_dim=32, input_dim=2, output_dim=1):
+        super().__init__(self)
 
         self.latent_dim = latent_dim
         self.input_dim = input_dim
         self.output_dim = output_dim
+
+    def forward(self, x, z):
+        """
+        Computes u(x) by conditioning on z, a latent representation of u.
+
+        Args:
+            x: (batch_size, input_dim) tensor of spatial locations
+            z: (batch_size, latent_dim) tensor of latent representations
+        """
+        raise NotImplementedError
+
+# NeRF-like decoder
+class NeRFDecoder(Decoder):
+    def __init__(self, latent_dim=32, input_dim=2, output_dim=1):
+        super().__init__(self, latent_dim, input_dim, output_dim)
 
         # (original) NeRF-like architecture
         self.mlp_x = nn.Sequential(
@@ -115,20 +129,134 @@ class NeRFDecoder(nn.Module):
 
         return xz
     
-class LinearDecoder(nn.Module):
-    pass
+class LinearDecoder(Decoder):
+    def __init__(self, latent_dim=32, input_dim=2, **kwargs):
+        super().__init__(self, latent_dim, input_dim, output_dim=1)
 
-class Cat1stDecoder(nn.Module):
-    pass
+        self.activ = nn.GELU()
 
-class DistribCatDecoder(nn.Module):
-    pass
+        self.mlp = nn.Sequential(
+            nn.Linear(self.input_dim, 128),
+            self.activ,
+            nn.Linear(128, 128),
+            self.activ,
+            nn.Linear(128, 128),
+            self.activ,
+            nn.Linear(128, latent_dim),
+        )
 
-class HyperNetDecoder(nn.Module):
-    pass
+        self.output_activ = nn.Softplus()
 
-class AttentionDecoder(nn.Module):
-    pass
+    def forward(self, x, z):
+        prod = self.mlp(x) * z
+        dotprod = prod.sum(axis=-1)
+        return self.output_activ(dotprod)
+
+class Cat1stDecoder(Decoder):
+    def __init__(self, latent_dim=32, input_dim=2, output_dim=1):
+        super().__init__(self, latent_dim, input_dim, output_dim)
+
+        self.activ = nn.GELU()
+        self.output_activ = nn.Softplus()
+
+        self.mlp = nn.Sequential(
+            nn.Linear(self.latent_dim + self.input_dim, 128),
+            self.activ,
+            nn.Linear(128, 128),
+            self.activ,
+            nn.Linear(128, 128),
+            self.activ,
+            nn.Linear(128, output_dim),
+            self.output_activ,
+        )
+
+    def forward(self, x, z):
+        return self.mlp(torch.cat([x, z], dim=-1))
+
+class DistribCatDecoder(Decoder):
+    def __init__(self, latent_dim=32, input_dim=2, output_dim=1):
+        """
+        latent_dim must be divisible by 4 (nb. hidden layers)
+        """
+        super().__init__(self, latent_dim, input_dim, output_dim)
+        
+        self.split_zdim = self.latent_dim // 4
+
+        self.lin1 = nn.Linear(self.input_dim, 128)
+        self.lin2 = nn.Linear(128 + self.split_zdim, 128)
+        self.lin3 = nn.Linear(128 + self.split_zdim, 128)
+        self.lin4 = nn.Linear(128 + self.split_zdim, 128)
+        self.lin5 = nn.Linear(128 + self.split_zdim, output_dim)
+        self.activ = nn.GELU()
+        self.output_activ = nn.Softplus()
+
+    def forward(self, x, z):
+        # TODO cleaner with nn.ModuleList or whatever
+        #      put hidden_dim in params etc 
+        zs = torch.split(z, self.split_zdim, dim=-1)  # list of 4 [..., latent_dim/4]
+        x = self.lin1(x)
+        x = self.activ(x)
+        x = torch.cat([x, zs[0]], dim=-1)
+        x = self.lin2(x)
+        x = self.activ(x)
+        x = torch.cat([x, zs[1]], dim=-1)
+        x = self.lin3(x)
+        x = self.activ(x)
+        x = torch.cat([x, zs[2]], dim=-1)
+        x = self.lin4(x)
+        x = self.activ(x)
+        x = torch.cat([x, zs[3]], dim=-1)
+        x = self.lin5(x)
+        x = self.output_activ(x)
+        return x
+
+class HyperNetDecoder(Decoder):
+    def __init__(self, latent_dim=32, input_dim=2, output_dim=1):
+        super().__init__(self, latent_dim, input_dim, output_dim)
+
+        self.activ = nn.GELU()
+
+        # 33537 parameters for 3 hidden layers at 128
+        # 2 * 128 + 128    = 384
+        # 128 * 128 + 128  = 16512
+        # 128 * 128 + 128  = 16512
+        # 128 * 1 + 1      = 129
+        # Total            = 33,537
+        self.hyper_net = nn.Sequential(
+            nn.Linear(self.latent_dim, 128),
+            self.activ,
+            nn.Linear(128, 256),
+            self.activ,
+            nn.Linear(256, 256),
+            self.activ,
+            nn.Linear(256, 33537),
+        )
+
+        self.mlp = nn.Sequential(
+            nn.Linear(self.input_dim, 128),
+            self.activ,
+            nn.Linear(128, 128),
+            self.activ,
+            nn.Linear(128, 128),
+            self.activ,
+            nn.Linear(128, output_dim),
+            nn.Softplus(),
+        )
+
+    def forward(self, x, z):
+        W = self.hyper_net(z)
+
+        # W is [batch_size, 33537]
+        # Use W as weights for MLP
+        # TODO (pay attention to batch and x's shape which will often be [batch_size, grid_H, grid_W, 2])
+        pass
+
+class AttentionDecoder(Decoder):
+    def __init__(self, latent_dim=32, input_dim=2, output_dim=1):
+        super().__init__(self, latent_dim, input_dim, output_dim)
+
+    def forward(self, x, z):
+        return x * z
 
 
 DECODERS = {
@@ -136,20 +264,25 @@ DECODERS = {
     "linear": LinearDecoder,
     "cat1st": Cat1stDecoder,
     "distribcat": DistribCatDecoder,
-    "hypernet": HyperNetDecoder,
-    "attention": AttentionDecoder
+    #"hypernet": HyperNetDecoder,
+    #"attention": AttentionDecoder
 }
 
 class VANO(nn.Module):
-    def __init__(self, latent_dim=32, input_dim=2, output_dim=1, device='cpu'):
+    def __init__(self, 
+                 latent_dim=32, 
+                 input_dim=2, 
+                 output_dim=1, 
+                 decoder="nerf",
+                 device='cpu'):
         super(VANO, self).__init__()
 
         self.latent_dim = latent_dim
         self.input_dim = input_dim
         self.output_dim = output_dim
     
-        self.encoder = Encoder(latent_dim, input_dim, output_dim, device)
-        self.decoder = NeRFDecoder(latent_dim, input_dim, output_dim, device)
+        self.encoder = Encoder(latent_dim, input_dim, output_dim)
+        self.decoder = DECODERS[decoder](latent_dim, input_dim, output_dim)
 
         ls = torch.linspace(0, 1, 48).to(device)
         self.grid = torch.stack(torch.meshgrid(ls, ls, indexing='ij'), dim=-1).unsqueeze(0)
@@ -192,8 +325,8 @@ def gen_datasets(N=1, device='cpu'):
 
 configs = [
     {
-        "S": i
-    } for i in range(1, 20)
+        "decoder": d
+    } for d in DECODERS.values()
 ]
 
 @job(
@@ -226,7 +359,8 @@ def train(i: int):
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=32, shuffle=True)
     
     # Training
-    vano = VANO(device=device).to(device)
+    decoder = configs[i]['decoder']
+    vano = VANO(decoder=decoder, device=device).to(device)
     vano.train()
 
     # Parameters:
@@ -248,7 +382,7 @@ def train(i: int):
     if wandb_enabled:
         wandb.init(
             project="vano",
-            name=f"S={S}",
+            name=f"{decoder}",
             config={
                 "S": S,
                 "beta": beta,
@@ -257,7 +391,7 @@ def train(i: int):
                 "lr": lr,
                 "lr_decay": lr_decay,
                 "lr_decay_every": lr_decay_every,
-                "experiment-name": "MC_S_value",
+                "experiment-name": "decoders",
             }
         )
 
