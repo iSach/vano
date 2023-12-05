@@ -6,6 +6,7 @@ import torchvision
 import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
 import numpy as np
+import shutil
 
 # torch distribs
 import torch.distributions as dists
@@ -490,9 +491,14 @@ def train(i: int):
     torch.save(vano.state_dict(), "vano.pt")
 
 if __name__ == "__main__":
+    # Check if srun command exists in os
+    backend = "slurm"
+    if shutil.which('sbatch') is None:
+        backend = "async"
+    print(f"Launching {len(train.array)} jobs with backend {backend}")
     schedule(
         train,
-        backend="async",
+        backend=backend,
         export="ALL",
         env=["export WANDB_SILENT=true"],
     )
