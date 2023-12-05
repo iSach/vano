@@ -79,7 +79,8 @@ class Decoder(nn.Module):
             nn.ReLU(),
             nn.Linear(128, 256),
             nn.ReLU(),
-            nn.Linear(256, output_dim)
+            nn.Linear(256, output_dim),
+            nn.Softplus()
         )
 
     def forward(self, x, z):
@@ -153,7 +154,7 @@ def gen_datasets(N=1, device='cpu'):
 configs = [
     {
         "S": i
-    } for i in range(1, 100)
+    } for i in range(1, 20)
 ]
 
 @job(
