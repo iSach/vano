@@ -74,13 +74,48 @@ class Decoder(nn.Module):
         self.input_dim = input_dim
         self.output_dim = output_dim
 
-    def forward(self, x, z):
+    def __expand_z(self, x, z):
         """
-        Computes u(x) by conditioning on z, a latent representation of u.
+        Expands z to match x's shape.
+
+        Batches are often of shape [batch_size, grid_H, grid_W, 2]
+        while there is one z per batch element (i.e., [batch_size, latent_dim])
+        Expanding allows to more easily process between x and z.
 
         Args:
             x: (batch_size, input_dim) tensor of spatial locations
             z: (batch_size, latent_dim) tensor of latent representations
+        """
+        z = z.view(-1, *([1] * (len(x.shape) - 2)), self.latent_dim)
+        z = z.expand(-1, *x.shape[1:-1], self.latent_dim)
+        return z
+    
+    def forward(self, x, z):
+        """
+        Computes u(x) by conditioning on z, a latent representation of u.
+
+        Parameters
+        ----------
+        x : [batch_size, ..., in_dim] tensor of spatial locations
+        z : [batch_size, latent_dim] tensor of latent representations
+        """
+        return self.decode(x, self.__expand_z(x, z))
+
+    # This function is likely to change with a proper
+    # implementation of Pos. Encodings
+    # TODO: think about a clean way to handle
+    # the shape of x's in practice.
+    def decode(self, x, z):
+        """
+        Computes u(x) by conditioning on z, a latent representation of u.
+
+        This function takes as input expanded z's 
+        i.e., z's shape is the same as x's shape.
+
+        Parameters
+        ----------
+        x : [batch_size, ..., in_dim] tensor of spatial locations
+        z : [batch_size, ..., latent_dim] tensor of latent representations
         """
         raise NotImplementedError
 
@@ -122,16 +157,20 @@ class NeRFDecoder(Decoder):
             z: (batch_size, latent_dim) tensor of latent representations
         """
         x = self.mlp_x(x)
+        # Perform MLP on z before expanding to avoid
+        # extra computations on the expanded z
+        # Even if view/expand do not allocate more memory,
+        # the operations are still performed on the expanded z.
         z = self.mlp_z(z)
         # z is [32, 32], reshape to [32, 48, 48, 32]
-        z = z.view(-1, 1, 1, 32).expand(-1, 48, 48, -1)
+        z = self.__expand_z(x, z)
         xz = torch.cat([x, z], dim=-1)
         xz = self.joint_mlp(xz)
 
         return xz
     
 class LinearDecoder(Decoder):
-    def __init__(self, latent_dim=32, input_dim=2, **kwargs):
+    def __init__(self, latent_dim=32, input_dim=2, *args, **kwargs):
         super().__init__(latent_dim, input_dim, output_dim=1)
 
         self.activ = nn.GELU()
@@ -148,7 +187,7 @@ class LinearDecoder(Decoder):
 
         self.output_activ = nn.Softplus()
 
-    def forward(self, x, z):
+    def decode(self, x, z):
         prod = self.mlp(x) * z
         dotprod = prod.sum(axis=-1)
         return self.output_activ(dotprod)
@@ -171,7 +210,7 @@ class Cat1stDecoder(Decoder):
             self.output_activ,
         )
 
-    def forward(self, x, z):
+    def decode(self, x, z):
         return self.mlp(torch.cat([x, z], dim=-1))
 
 class DistribCatDecoder(Decoder):
@@ -191,7 +230,7 @@ class DistribCatDecoder(Decoder):
         self.activ = nn.GELU()
         self.output_activ = nn.Softplus()
 
-    def forward(self, x, z):
+    def decode(self, x, z):
         # TODO cleaner with nn.ModuleList or whatever
         #      put hidden_dim in params etc 
         zs = torch.split(z, self.split_zdim, dim=-1)  # list of 4 [..., latent_dim/4]
@@ -244,7 +283,7 @@ class HyperNetDecoder(Decoder):
             nn.Softplus(),
         )
 
-    def forward(self, x, z):
+    def decode(self, x, z):
         W = self.hyper_net(z)
 
         # W is [batch_size, 33537]
@@ -324,6 +363,9 @@ def gen_datasets(N=1, device='cpu'):
 
     return x.to(device), y.exp().to(device)
 
+def is_slurm():
+    return shutil.which('sbatch') is not None
+
 configs = [
     {
         "decoder": d
@@ -379,7 +421,7 @@ def train(i: int):
     lr_scheduler = topt.lr_scheduler.StepLR(optimizer, step_size=lr_decay_every, gamma=lr_decay)
 
     # W&B
-    wandb_enabled = True
+    wandb_enabled = is_slurm()
     if wandb_enabled:
         wandb.init(
             project="vano",
@@ -492,9 +534,7 @@ def train(i: int):
 
 if __name__ == "__main__":
     # Check if srun command exists in os
-    backend = "slurm"
-    if shutil.which('sbatch') is None:
-        backend = "async"
+    backend = "slurm" if is_slurm() else "async"
     print(f"Launching {len(train.array)} jobs with backend {backend}")
     schedule(
         train,
