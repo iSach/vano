@@ -67,7 +67,7 @@ class Encoder(nn.Module):
     
 class Decoder(nn.Module):
     def __init__(self, latent_dim=32, input_dim=2, output_dim=1):
-        super().__init__(self)
+        super().__init__()
 
         self.latent_dim = latent_dim
         self.input_dim = input_dim
@@ -86,7 +86,7 @@ class Decoder(nn.Module):
 # NeRF-like decoder
 class NeRFDecoder(Decoder):
     def __init__(self, latent_dim=32, input_dim=2, output_dim=1):
-        super().__init__(self, latent_dim, input_dim, output_dim)
+        super().__init__(latent_dim, input_dim, output_dim)
 
         # (original) NeRF-like architecture
         self.mlp_x = nn.Sequential(
@@ -131,7 +131,7 @@ class NeRFDecoder(Decoder):
     
 class LinearDecoder(Decoder):
     def __init__(self, latent_dim=32, input_dim=2, **kwargs):
-        super().__init__(self, latent_dim, input_dim, output_dim=1)
+        super().__init__(latent_dim, input_dim, output_dim=1)
 
         self.activ = nn.GELU()
 
@@ -154,7 +154,7 @@ class LinearDecoder(Decoder):
 
 class Cat1stDecoder(Decoder):
     def __init__(self, latent_dim=32, input_dim=2, output_dim=1):
-        super().__init__(self, latent_dim, input_dim, output_dim)
+        super().__init__(latent_dim, input_dim, output_dim)
 
         self.activ = nn.GELU()
         self.output_activ = nn.Softplus()
@@ -178,7 +178,7 @@ class DistribCatDecoder(Decoder):
         """
         latent_dim must be divisible by 4 (nb. hidden layers)
         """
-        super().__init__(self, latent_dim, input_dim, output_dim)
+        super().__init__(latent_dim, input_dim, output_dim)
         
         self.split_zdim = self.latent_dim // 4
 
@@ -212,7 +212,7 @@ class DistribCatDecoder(Decoder):
 
 class HyperNetDecoder(Decoder):
     def __init__(self, latent_dim=32, input_dim=2, output_dim=1):
-        super().__init__(self, latent_dim, input_dim, output_dim)
+        super().__init__(latent_dim, input_dim, output_dim)
 
         self.activ = nn.GELU()
 
@@ -253,7 +253,7 @@ class HyperNetDecoder(Decoder):
 
 class AttentionDecoder(Decoder):
     def __init__(self, latent_dim=32, input_dim=2, output_dim=1):
-        super().__init__(self, latent_dim, input_dim, output_dim)
+        super().__init__(latent_dim, input_dim, output_dim)
 
     def forward(self, x, z):
         return x * z
@@ -364,7 +364,7 @@ def train(i: int):
     vano.train()
 
     # Parameters:
-    S = configs[i]['S']  # Monte Carlo samples for evaluating reconstruction loss in ELBO (E_q(z | x) [log p(x | z)])
+    S = 4  # Monte Carlo samples for evaluating reconstruction loss in ELBO (E_q(z | x) [log p(x | z)])
     #beta = 10e-5  # Weighting of KL divergence in ELBO
     beta = 1.0
     batch_size = 32
@@ -492,7 +492,7 @@ def train(i: int):
 if __name__ == "__main__":
     schedule(
         train,
-        backend="slurm",
+        backend="async",
         export="ALL",
         env=["export WANDB_SILENT=true"],
     )
