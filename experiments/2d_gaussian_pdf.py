@@ -301,9 +301,9 @@ class AttentionDecoder(Decoder):
 
 DECODERS = {
     "nerf": NeRFDecoder,
-    #"linear": LinearDecoder,
-    #"cat1st": Cat1stDecoder,
-    #"distribcat": DistribCatDecoder,
+    "linear": LinearDecoder,
+    "cat1st": Cat1stDecoder,
+    "distribcat": DistribCatDecoder,
     #"hypernet": HyperNetDecoder,
     #"attention": AttentionDecoder
 }
@@ -411,7 +411,7 @@ def train(i: int):
     #beta = 10e-5  # Weighting of KL divergence in ELBO
     beta = 1.0
     batch_size = 32
-    num_iters = 50_000
+    num_iters = 25_000
 
     # Exponential decay of every 1000 iterations by 0.9
     lr = 1e-3
