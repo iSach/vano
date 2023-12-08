@@ -1,0 +1,27 @@
+2023-12-05 14:02:27,907 INFO    StreamThr :60925 [internal.py:wandb_internal():86] W&B internal server running at pid: 60925, started at: 2023-12-05 14:02:27.907421
+2023-12-05 14:02:27,908 DEBUG   HandlerThread:60925 [handler.py:handle_request():144] handle_request: status
+2023-12-05 14:02:27,909 INFO    WriterThread:60925 [datastore.py:open_for_write():85] open: /Users/sach/Development/Python/VANO/wandb/run-20231205_140227-fkhtlhkv/run-fkhtlhkv.wandb
+2023-12-05 14:02:27,910 DEBUG   SenderThread:60925 [sender.py:send():369] send: header
+2023-12-05 14:02:27,911 INFO    WriterThread:60925 [datastore.py:open_for_write():85] open: /Users/sach/Development/Python/VANO/wandb/run-20231205_140227-o304m4w6/run-o304m4w6.wandb
+2023-12-05 14:02:27,911 DEBUG   SenderThread:60925 [sender.py:send():369] send: header
+2023-12-05 14:02:27,924 DEBUG   SenderThread:60925 [sender.py:send():369] send: run
+2023-12-05 14:02:27,929 DEBUG   SenderThread:60925 [sender.py:send():369] send: run
+2023-12-05 14:02:27,931 DEBUG   SenderThread:60925 [sender.py:send():369] send: run
+2023-12-05 14:02:28,319 INFO    SenderThread:60925 [dir_watcher.py:__init__():211] watching files in: /Users/sach/Development/Python/VANO/wandb/run-20231205_140227-o304m4w6/files
+2023-12-05 14:02:28,319 INFO    SenderThread:60925 [dir_watcher.py:__init__():211] watching files in: /Users/sach/Development/Python/VANO/wandb/run-20231205_140227-saanhfw2/files
+2023-12-05 14:02:28,319 INFO    SenderThread:60925 [dir_watcher.py:__init__():211] watching files in: /Users/sach/Development/Python/VANO/wandb/run-20231205_140227-fkhtlhkv/files
+2023-12-05 14:02:28,319 INFO    SenderThread:60925 [sender.py:_start_run_threads():1100] run started: o304m4w6 with start time 1701781347.910191
+2023-12-05 14:02:28,320 INFO    SenderThread:60925 [sender.py:_start_run_threads():1100] run started: saanhfw2 with start time 1701781347.854213
+2023-12-05 14:02:28,320 INFO    SenderThread:60925 [sender.py:_start_run_threads():1100] run started: fkhtlhkv with start time 1701781347.90698
+2023-12-05 14:02:32,558 DEBUG   HandlerThread:60925 [handler.py:handle_request():144] handle_request: shutdown
+2023-12-05 14:02:32,558 INFO    HandlerThread:60925 [handler.py:finish():854] shutting down handler
+2023-12-05 14:02:32,943 INFO    WriterThread:60925 [datastore.py:close():298] close: /Users/sach/Development/Python/VANO/wandb/run-20231205_140227-saanhfw2/run-saanhfw2.wandb
+2023-12-05 14:02:33,337 DEBUG   HandlerThread:60925 [handler.py:handle_request():144] handle_request: status_report
+2023-12-05 14:02:33,341 INFO    SenderThread:60925 [sender.py:finish():1526] shutting down sender
+2023-12-05 14:02:33,341 INFO    SenderThread:60925 [dir_watcher.py:finish():359] shutting down directory watcher
+2023-12-05 14:02:33,342 DEBUG   HandlerThread:60925 [handler.py:handle_request():144] handle_request: status_report
+2023-12-05 14:02:34,343 INFO    SenderThread:60925 [dir_watcher.py:finish():389] scan: /Users/sach/Development/Python/VANO/wandb/run-20231205_140227-saanhfw2/files
+2023-12-05 14:02:34,343 INFO    SenderThread:60925 [dir_watcher.py:finish():403] scan save: /Users/sach/Development/Python/VANO/wandb/run-20231205_140227-saanhfw2/files/config.yaml config.yaml
+2023-12-05 14:02:34,344 INFO    SenderThread:60925 [file_pusher.py:finish():159] shutting down file pusher
+2023-12-05 14:02:34,346 INFO    SenderThread:60925 [file_pusher.py:join():164] waiting for file pusher
+2023-12-05 14:02:34,771 INFO    wandb-upload_0:60925 [upload_job.py:push():133] Uploaded file /Users/sach/Development/Python/VANO/wandb/run-20231205_140227-saanhfw2/files/config.yaml

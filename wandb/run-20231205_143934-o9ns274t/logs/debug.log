@@ -1,0 +1,84 @@
+2023-12-05 14:39:34,894 INFO    ThreadPoolExecutor-0_3:61688 [wandb_setup.py:_flush():76] Current SDK version is 0.15.4
+2023-12-05 14:39:34,895 INFO    ThreadPoolExecutor-0_2:61688 [wandb_setup.py:_flush():76] Current SDK version is 0.15.4
+2023-12-05 14:39:34,895 INFO    ThreadPoolExecutor-0_3:61688 [wandb_setup.py:_flush():76] Configure stats pid to 61688
+2023-12-05 14:39:34,895 INFO    ThreadPoolExecutor-0_2:61688 [wandb_setup.py:_flush():76] Configure stats pid to 61688
+2023-12-05 14:39:34,895 INFO    ThreadPoolExecutor-0_0:61688 [wandb_setup.py:_flush():76] Current SDK version is 0.15.4
+2023-12-05 14:39:34,895 INFO    ThreadPoolExecutor-0_3:61688 [wandb_setup.py:_flush():76] Loading settings from /Users/sach/.config/wandb/settings
+2023-12-05 14:39:34,895 INFO    ThreadPoolExecutor-0_2:61688 [wandb_setup.py:_flush():76] Loading settings from /Users/sach/.config/wandb/settings
+2023-12-05 14:39:34,896 INFO    ThreadPoolExecutor-0_0:61688 [wandb_setup.py:_flush():76] Configure stats pid to 61688
+2023-12-05 14:39:34,896 INFO    ThreadPoolExecutor-0_3:61688 [wandb_setup.py:_flush():76] Loading settings from /Users/sach/Development/Python/VANO/wandb/settings
+2023-12-05 14:39:34,896 INFO    ThreadPoolExecutor-0_2:61688 [wandb_setup.py:_flush():76] Loading settings from /Users/sach/Development/Python/VANO/wandb/settings
+2023-12-05 14:39:34,896 INFO    ThreadPoolExecutor-0_0:61688 [wandb_setup.py:_flush():76] Loading settings from /Users/sach/.config/wandb/settings
+2023-12-05 14:39:34,896 INFO    ThreadPoolExecutor-0_3:61688 [wandb_setup.py:_flush():76] Loading settings from environment variables: {}
+2023-12-05 14:39:34,896 INFO    ThreadPoolExecutor-0_2:61688 [wandb_setup.py:_flush():76] Loading settings from environment variables: {}
+2023-12-05 14:39:34,896 INFO    ThreadPoolExecutor-0_0:61688 [wandb_setup.py:_flush():76] Loading settings from /Users/sach/Development/Python/VANO/wandb/settings
+2023-12-05 14:39:34,896 INFO    ThreadPoolExecutor-0_3:61688 [wandb_setup.py:_flush():76] Applying setup settings: {'_disable_service': False}
+2023-12-05 14:39:34,896 INFO    ThreadPoolExecutor-0_2:61688 [wandb_setup.py:_flush():76] Applying setup settings: {'_disable_service': False}
+2023-12-05 14:39:34,896 INFO    ThreadPoolExecutor-0_0:61688 [wandb_setup.py:_flush():76] Loading settings from environment variables: {}
+2023-12-05 14:39:34,897 INFO    ThreadPoolExecutor-0_3:61688 [wandb_setup.py:_flush():76] Inferring run settings from compute environment: {'program_relpath': 'experiments/2d_gaussian_pdf.py', 'program': '/Users/sach/Development/Python/VANO/experiments/2d_gaussian_pdf.py'}
+2023-12-05 14:39:34,897 INFO    ThreadPoolExecutor-0_2:61688 [wandb_setup.py:_flush():76] Inferring run settings from compute environment: {'program_relpath': 'experiments/2d_gaussian_pdf.py', 'program': '/Users/sach/Development/Python/VANO/experiments/2d_gaussian_pdf.py'}
+2023-12-05 14:39:34,897 INFO    ThreadPoolExecutor-0_0:61688 [wandb_setup.py:_flush():76] Applying setup settings: {'_disable_service': False}
+2023-12-05 14:39:34,897 INFO    ThreadPoolExecutor-0_3:61688 [wandb_init.py:_log_setup():507] Logging user logs to /Users/sach/Development/Python/VANO/wandb/run-20231205_143934-o9ns274t/logs/debug.log
+2023-12-05 14:39:34,897 INFO    ThreadPoolExecutor-0_2:61688 [wandb_init.py:_log_setup():507] Logging user logs to /Users/sach/Development/Python/VANO/wandb/run-20231205_143934-y60ds4n0/logs/debug.log
+2023-12-05 14:39:34,897 INFO    ThreadPoolExecutor-0_0:61688 [wandb_setup.py:_flush():76] Inferring run settings from compute environment: {'program_relpath': 'experiments/2d_gaussian_pdf.py', 'program': '/Users/sach/Development/Python/VANO/experiments/2d_gaussian_pdf.py'}
+2023-12-05 14:39:34,897 INFO    ThreadPoolExecutor-0_3:61688 [wandb_init.py:_log_setup():508] Logging internal logs to /Users/sach/Development/Python/VANO/wandb/run-20231205_143934-o9ns274t/logs/debug-internal.log
+2023-12-05 14:39:34,898 INFO    ThreadPoolExecutor-0_3:61688 [wandb_init.py:init():547] calling init triggers
+2023-12-05 14:39:34,898 INFO    ThreadPoolExecutor-0_2:61688 [wandb_init.py:_log_setup():508] Logging internal logs to /Users/sach/Development/Python/VANO/wandb/run-20231205_143934-y60ds4n0/logs/debug-internal.log
+2023-12-05 14:39:34,898 INFO    ThreadPoolExecutor-0_0:61688 [wandb_init.py:_log_setup():507] Logging user logs to /Users/sach/Development/Python/VANO/wandb/run-20231205_143934-a0zawi9d/logs/debug.log
+2023-12-05 14:39:34,898 INFO    ThreadPoolExecutor-0_3:61688 [wandb_init.py:init():554] wandb.init called with sweep_config: {}
+config: {'S': 4, 'beta': 1.0, 'batch_size': 32, 'num_iters': 50000, 'lr': 0.001, 'lr_decay': 0.9, 'lr_decay_every': 1000, 'experiment-name': 'decoders'}
+2023-12-05 14:39:34,898 INFO    ThreadPoolExecutor-0_2:61688 [wandb_init.py:init():547] calling init triggers
+2023-12-05 14:39:34,898 INFO    ThreadPoolExecutor-0_0:61688 [wandb_init.py:_log_setup():508] Logging internal logs to /Users/sach/Development/Python/VANO/wandb/run-20231205_143934-a0zawi9d/logs/debug-internal.log
+2023-12-05 14:39:34,898 INFO    ThreadPoolExecutor-0_3:61688 [wandb_init.py:init():596] starting backend
+2023-12-05 14:39:34,898 INFO    ThreadPoolExecutor-0_2:61688 [wandb_init.py:init():554] wandb.init called with sweep_config: {}
+config: {'S': 4, 'beta': 1.0, 'batch_size': 32, 'num_iters': 50000, 'lr': 0.001, 'lr_decay': 0.9, 'lr_decay_every': 1000, 'experiment-name': 'decoders'}
+2023-12-05 14:39:34,899 INFO    ThreadPoolExecutor-0_0:61688 [wandb_init.py:init():547] calling init triggers
+2023-12-05 14:39:34,899 INFO    ThreadPoolExecutor-0_3:61688 [wandb_init.py:init():600] setting up manager
+2023-12-05 14:39:34,899 INFO    ThreadPoolExecutor-0_2:61688 [wandb_init.py:init():596] starting backend
+2023-12-05 14:39:34,899 INFO    ThreadPoolExecutor-0_0:61688 [wandb_init.py:init():554] wandb.init called with sweep_config: {}
+config: {'S': 4, 'beta': 1.0, 'batch_size': 32, 'num_iters': 50000, 'lr': 0.001, 'lr_decay': 0.9, 'lr_decay_every': 1000, 'experiment-name': 'decoders'}
+2023-12-05 14:39:34,899 INFO    ThreadPoolExecutor-0_2:61688 [wandb_init.py:init():600] setting up manager
+2023-12-05 14:39:34,900 INFO    ThreadPoolExecutor-0_0:61688 [wandb_init.py:init():596] starting backend
+2023-12-05 14:39:34,900 INFO    ThreadPoolExecutor-0_0:61688 [wandb_init.py:init():600] setting up manager
+2023-12-05 14:39:34,910 INFO    ThreadPoolExecutor-0_3:61688 [backend.py:_multiprocessing_setup():106] multiprocessing start_methods=spawn,fork,forkserver, using: spawn
+2023-12-05 14:39:34,921 INFO    ThreadPoolExecutor-0_2:61688 [backend.py:_multiprocessing_setup():106] multiprocessing start_methods=spawn,fork,forkserver, using: spawn
+2023-12-05 14:39:34,927 INFO    ThreadPoolExecutor-0_0:61688 [backend.py:_multiprocessing_setup():106] multiprocessing start_methods=spawn,fork,forkserver, using: spawn
+2023-12-05 14:39:34,929 INFO    ThreadPoolExecutor-0_3:61688 [wandb_init.py:init():606] backend started and connected
+2023-12-05 14:39:34,929 INFO    ThreadPoolExecutor-0_2:61688 [wandb_init.py:init():606] backend started and connected
+2023-12-05 14:39:34,929 INFO    ThreadPoolExecutor-0_0:61688 [wandb_init.py:init():606] backend started and connected
+2023-12-05 14:39:34,933 INFO    ThreadPoolExecutor-0_2:61688 [wandb_init.py:init():703] updated telemetry
+2023-12-05 14:39:34,933 INFO    ThreadPoolExecutor-0_3:61688 [wandb_init.py:init():703] updated telemetry
+2023-12-05 14:39:34,934 INFO    ThreadPoolExecutor-0_0:61688 [wandb_init.py:init():703] updated telemetry
+2023-12-05 14:39:34,973 INFO    ThreadPoolExecutor-0_2:61688 [wandb_init.py:init():736] communicating run to backend with 60.0 second timeout
+2023-12-05 14:39:34,973 INFO    ThreadPoolExecutor-0_3:61688 [wandb_init.py:init():736] communicating run to backend with 60.0 second timeout
+2023-12-05 14:39:34,973 INFO    ThreadPoolExecutor-0_0:61688 [wandb_init.py:init():736] communicating run to backend with 60.0 second timeout
+2023-12-05 14:39:35,377 INFO    ThreadPoolExecutor-0_0:61688 [wandb_run.py:_on_init():2176] communicating current version
+2023-12-05 14:39:35,415 INFO    ThreadPoolExecutor-0_3:61688 [wandb_run.py:_on_init():2176] communicating current version
+2023-12-05 14:39:35,438 INFO    ThreadPoolExecutor-0_0:61688 [wandb_run.py:_on_init():2185] got version response upgrade_message: "wandb version 0.16.0 is available!  To upgrade, please run:\n $ pip install wandb --upgrade"
+
+2023-12-05 14:39:35,438 INFO    ThreadPoolExecutor-0_0:61688 [wandb_init.py:init():787] starting run threads in backend
+2023-12-05 14:39:35,469 INFO    ThreadPoolExecutor-0_3:61688 [wandb_run.py:_on_init():2185] got version response upgrade_message: "wandb version 0.16.0 is available!  To upgrade, please run:\n $ pip install wandb --upgrade"
+
+2023-12-05 14:39:35,469 INFO    ThreadPoolExecutor-0_3:61688 [wandb_init.py:init():787] starting run threads in backend
+2023-12-05 14:39:40,588 WARNING MsgRouterThr:61688 [router.py:message_loop():77] message_loop has been closed
+2023-12-05 14:39:40,592 INFO    ThreadPoolExecutor-0_3:61688 [wandb_run.py:_console_start():2155] atexit reg
+2023-12-05 14:39:40,592 INFO    ThreadPoolExecutor-0_3:61688 [wandb_run.py:_redirect():2010] redirect: SettingsConsole.WRAP_RAW
+2023-12-05 14:39:40,593 INFO    ThreadPoolExecutor-0_3:61688 [wandb_run.py:_redirect():2075] Wrapping output streams.
+2023-12-05 14:39:40,593 INFO    ThreadPoolExecutor-0_3:61688 [wandb_run.py:_redirect():2100] Redirects installed.
+2023-12-05 14:39:40,594 INFO    ThreadPoolExecutor-0_3:61688 [wandb_init.py:init():828] run started, returning control to user process
+2023-12-05 14:40:05,578 INFO    ThreadPoolExecutor-0_0:61688 [wandb_run.py:_console_start():2155] atexit reg
+2023-12-05 14:40:05,579 INFO    ThreadPoolExecutor-0_0:61688 [wandb_run.py:_redirect():2010] redirect: SettingsConsole.WRAP_RAW
+2023-12-05 14:40:05,579 INFO    ThreadPoolExecutor-0_0:61688 [wandb_run.py:_redirect():2075] Wrapping output streams.
+2023-12-05 14:40:05,579 INFO    ThreadPoolExecutor-0_0:61688 [wandb_run.py:_redirect():2100] Redirects installed.
+2023-12-05 14:40:05,579 INFO    ThreadPoolExecutor-0_0:61688 [wandb_init.py:init():828] run started, returning control to user process
+2023-12-05 14:40:35,276 ERROR   ThreadPoolExecutor-0_2:61688 [wandb_init.py:init():762] encountered error: Run initialization has timed out after 60.0 sec. 
+Please refer to the documentation for additional information: https://docs.wandb.ai/guides/track/tracking-faq#initstarterror-error-communicating-with-wandb-process-
+2023-12-05 14:40:35,363 ERROR   ThreadPoolExecutor-0_2:61688 [wandb_init.py:init():1170] Run initialization has timed out after 60.0 sec. 
+Please refer to the documentation for additional information: https://docs.wandb.ai/guides/track/tracking-faq#initstarterror-error-communicating-with-wandb-process-
+Traceback (most recent call last):
+  File "/Users/sach/miniconda3/envs/deeplearning/lib/python3.9/site-packages/wandb/sdk/wandb_init.py", line 1152, in init
+    run = wi.init()
+  File "/Users/sach/miniconda3/envs/deeplearning/lib/python3.9/site-packages/wandb/sdk/wandb_init.py", line 768, in init
+    raise error
+wandb.errors.CommError: Run initialization has timed out after 60.0 sec. 
+Please refer to the documentation for additional information: https://docs.wandb.ai/guides/track/tracking-faq#initstarterror-error-communicating-with-wandb-process-

@@ -1,0 +1,1 @@
+{"reconstr_loss": 1095.054931640625, "kl_loss": NaN, "loss": NaN, "lr": 0.001, "_timestamp": 1701691224.206763, "_runtime": 217.6180260181427, "_step": 3167, "_wandb": {"runtime": 217}}
