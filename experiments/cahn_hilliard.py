@@ -301,9 +301,9 @@ class AttentionDecoder(Decoder):
 
 DECODERS = {
     "nerf": NeRFDecoder,
-    "linear": LinearDecoder,
-    "cat1st": Cat1stDecoder,
-    "distribcat": DistribCatDecoder,
+    #"linear": LinearDecoder,
+    #"cat1st": Cat1stDecoder,
+    #"distribcat": DistribCatDecoder,
     #"hypernet": HyperNetDecoder,
     #"attention": AttentionDecoder
 }
@@ -350,7 +350,7 @@ def load_data(N=1, device='cpu'):
 
     # Load N rows from data/cahn_hilliard/64/case1.npy
     u = torch.from_numpy(np.load("data/cahn_hilliard/64/case1.npy")[:N])
-    u = u.to(np.float32)
+    u = u.float()
 
     return grid.to(device), u.to(device)
 
