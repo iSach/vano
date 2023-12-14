@@ -39,20 +39,20 @@ class Encoder(nn.Module):
 
         self.activ = nn.GELU()
 
-        # Input: [output_dim, 48, 48]
+        # Input: [output_dim, 64, 64]
         self.seq = nn.Sequential(
-            nn.Conv2d(output_dim, 8, 2),        # [8, 47, 47]
+            nn.Conv2d(output_dim, 8, 2),        # [8, 63, 63]
             self.activ,
-            nn.Conv2d(8, 16, 2),                # [16, 46, 46]
+            nn.Conv2d(8, 16, 2),                # [16, 62, 62]
             self.activ,
-            nn.MaxPool2d(2),                    # [16, 23, 23]
-            nn.Conv2d(16, 32, 2),               # [32, 22, 22]
+            nn.MaxPool2d(2),                    # [16, 31, 31]
+            nn.Conv2d(16, 32, 2),               # [32, 30, 30]
             self.activ,
-            nn.Conv2d(32, 64, 2),               # [64, 21, 21]
+            nn.Conv2d(32, 64, 2),               # [64, 29, 29]
             self.activ,
-            nn.MaxPool2d(2),                    # [64, 10, 10]
-            nn.Flatten(),                       # [64 * 10 * 10]
-            nn.Linear(64 * 10 * 10, 256),       # [256]
+            nn.MaxPool2d(2),                    # [64, 14, 14]
+            nn.Flatten(),                       # [64 * 14 * 14]
+            nn.Linear(64 * 14 * 14, 256),       # [256]
             self.activ,
             nn.Linear(256, 128),                # [128]
             self.activ,
@@ -324,7 +324,7 @@ class VANO(nn.Module):
         self.encoder = Encoder(latent_dim, input_dim, output_dim)
         self.decoder = DECODERS[decoder](latent_dim, input_dim, output_dim)
 
-        ls = torch.linspace(0, 1, 48).to(device)
+        ls = torch.linspace(0, 1, 64).to(device)
         self.grid = torch.stack(torch.meshgrid(ls, ls, indexing='ij'), dim=-1).unsqueeze(0)
 
     def forward(self, u):
@@ -433,7 +433,8 @@ def train(i: int):
     num_epochs = num_iters // len(train_loader)
     for epoch in range(num_epochs):
         for grid, u in train_loader:
-            mu, logvar, z, u_hat = vano(u.view(-1, 1, 48, 48))
+            print("hello!")
+            mu, logvar, z, u_hat = vano(u.view(-1, 1, 64, 64))
             u_hat = u_hat.squeeze()
 
             u, u_hat = u.flatten(1), u_hat.flatten(1)
@@ -477,7 +478,7 @@ def train(i: int):
 
                     # ----- Reconstruction Image -----
                     test_u = test_dataset[0][1]
-                    test_u_hat = vano(test_u.view(-1, 1, 48, 48))[3].squeeze()
+                    test_u_hat = vano(test_u.view(-1, 1, 64, 64))[3].squeeze()
                     reconstr_img = torch.cat([test_u, test_u_hat], axis=1).detach().cpu().numpy()
                     reconstr_img = plt.get_cmap('viridis')(reconstr_img)[:, :, :3]
                     log_dict["reconstr_img"] = wandb.Image(reconstr_img)
@@ -485,14 +486,14 @@ def train(i: int):
                     # ----- Latent walk -----
                     u_start = test_dataset[0][1]
                     u_end = test_dataset[torch.randint(0, len(test_dataset), (1,))][1].squeeze()
-                    us = torch.stack([u_start, u_end]).view(-1, 1, 48, 48)
+                    us = torch.stack([u_start, u_end]).view(-1, 1, 64, 64)
                     zs = vano.encoder(us)[0]
                     z_start = zs[0]
                     z_end = zs[1]
                     z_walk = torch.stack([z_start + (z_end - z_start) * (i / 10) for i in range(10)], dim=0)
                     grids = vano.grid.expand(10, *vano.grid.shape[1:])
                     test_u_walk = vano.decoder(grids, z_walk).squeeze()  # [10, 48, 48]
-                    u_null = torch.zeros(48, 48).to(device)
+                    u_null = torch.zeros(64, 64).to(device)
                     first_row = torch.cat([u_start] + 8 * [u_null] + [u_end], dim=1) # [48, 480]
                     # Display latent walk u's next to each other
                     second_row = torch.cat(list(test_u_walk), dim=1)  # [48, 480]
@@ -506,8 +507,8 @@ def train(i: int):
                     z = torch.randn(img_grid_size**2, vano.latent_dim).to(device)
                     grids = vano.grid.expand(img_grid_size**2, *vano.grid.shape[1:])
                     us = vano.decoder(grids, z).squeeze()
-                    us = us.view(img_grid_size, img_grid_size, 48, 48)
-                    us = us.permute(0, 2, 1, 3).reshape(img_grid_size * 48, img_grid_size * 48)
+                    us = us.view(img_grid_size, img_grid_size, 64, 64)
+                    us = us.permute(0, 2, 1, 3).reshape(img_grid_size * 64, img_grid_size * 64)
                     rand_samples = us.detach().cpu().numpy()
                     rand_samples = plt.get_cmap('viridis')(rand_samples)[:, :, :3]
                     log_dict["rand_samples"] = wandb.Image(rand_samples)
