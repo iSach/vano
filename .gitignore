@@ -2,3 +2,4 @@
 wandb/
 .wandb/
 VANO.code-workspace
+**/*.npy
