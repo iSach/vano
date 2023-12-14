@@ -349,7 +349,7 @@ def load_data(N=1, device='cpu'):
     grid = torch.stack([grid] * N, dim=0)
 
     # Load N rows from data/cahn_hilliard/64/case1.npy
-    u = torch.load("data/cahn_hilliard/64/case1.npy")[:N]
+    u = torch.from_numpy(np.load("data/cahn_hilliard/64/case1.npy")[:N])
     u = u.to(np.float32)
 
     return grid.to(device), u.to(device)
