@@ -457,7 +457,7 @@ def train(i: int):
             u_hat_samples = vano.decoder(grid[:1].expand(z_samples.shape[0], *grid.shape[1:]), z_samples).squeeze()
             u_hat_samples = u_hat_samples.view(S, batch_size, *u_hat_samples.shape[1:])
             u_hat_samples = u_hat_samples.flatten(start_dim=-2)
-            # 1/2 * ||D(z)||^2_L2
+            # 1/2 * ||D(z)||^2_(L^2)
             Dz_norm = 0.5 * torch.norm(u_hat_samples, dim=-1).pow(2)
             # <D(z), u>^~ ~= sum_{i=1}^m D(z)(x_i) * u(x_i)
             inner_prod = (u_hat_samples * u[None, ...]).sum(axis=-1)
