@@ -460,8 +460,8 @@ def train(i: int):
 
     # Parameters:
     S = 4  # Monte Carlo samples for evaluating reconstruction loss in ELBO (E_q(z | x) [log p(x | z)])
-    #beta = 10e-5  # Weighting of KL divergence in ELBO
-    beta = 1.0
+    #beta = 1e-5  # Weighting of KL divergence in ELBO
+    beta = 1e-3
     batch_size = 32
     num_iters = 25_000
 
@@ -477,7 +477,7 @@ def train(i: int):
     if wandb_enabled:
         wandb.init(
             project="vano",
-            name=f"Sum β=1.0 (Paper)",
+            name=f"Sum β=1e-3 (Paper)",
             config={
                 "S": S,
                 "beta": beta,
