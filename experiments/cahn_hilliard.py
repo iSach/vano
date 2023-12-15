@@ -132,12 +132,12 @@ class Decoder(nn.Module):
 
 # NeRF-like decoder
 class NeRFDecoder(Decoder):
-    def __init__(self, latent_dim=32, input_dim=2, output_dim=1, device='cpu'):
+    def __init__(self, latent_dim=32, input_dim=2, output_dim=1, pe_var=10.0, device='cpu'):
         super().__init__(latent_dim, input_dim, output_dim)
 
         self.activ = nn.GELU()
 
-        self.pe_var = 10
+        self.pe_var = pe_var
         self.m = self.latent_dim // 2
         self.pe_dist = dists.Normal(0, self.pe_var)
         self.B = self.pe_dist.sample((self.m, input_dim)).to(device)
@@ -345,6 +345,7 @@ class VANO(nn.Module):
                  input_dim=2, 
                  output_dim=1, 
                  decoder="nerf",
+                 decoder_args={},
                  device='cpu'):
         super(VANO, self).__init__()
 
@@ -353,7 +354,7 @@ class VANO(nn.Module):
         self.output_dim = output_dim
     
         self.encoder = Encoder(latent_dim, input_dim, output_dim)
-        self.decoder = DECODERS[decoder](latent_dim, input_dim, output_dim, device=device)
+        self.decoder = DECODERS[decoder](latent_dim, input_dim, output_dim, **decoder_args, device=device)
 
         ls = torch.linspace(0, 1, 64).to(device)
         self.grid = torch.stack(torch.meshgrid(ls, ls, indexing='ij'), dim=-1).unsqueeze(0)
@@ -390,7 +391,13 @@ def is_slurm():
     return shutil.which('sbatch') is not None
 
 configs = [
-    1,2,3
+    1e-2,
+    1e-1,
+    1.0,
+    2.0,
+    5.0,
+    7.5,
+    10.0
 ]
 
 @job(
@@ -426,7 +433,13 @@ def train(i: int):
     
     # Training
     decoder = 'nerf'
-    vano = VANO(decoder=decoder, device=device).to(device)
+    vano = VANO(
+        decoder=decoder,
+        decoder_args={
+            "pe_var": configs[i]
+        }
+        device=device
+    ).to(device)
     vano.train()
 
     # Parameters:
@@ -448,7 +461,7 @@ def train(i: int):
     if wandb_enabled:
         wandb.init(
             project="vano",
-            name=f"Case {i}",
+            name=f"{configs[i]}",
             config={
                 "S": S,
                 "beta": beta,
@@ -457,7 +470,7 @@ def train(i: int):
                 "lr": lr,
                 "lr_decay": lr_decay,
                 "lr_decay_every": lr_decay_every,
-                "experiment-name": "CH_cases_N16k",
+                "experiment-name": "CH_PE_Variance",
             }
         )
 
