@@ -462,6 +462,7 @@ def train(i: int):
     S = 4  # Monte Carlo samples for evaluating reconstruction loss in ELBO (E_q(z | x) [log p(x | z)])
     #beta = 1e-5  # Weighting of KL divergence in ELBO
     beta = 1e-5
+    recon_reduction = 'mean'  # Reduction of reconstruction loss over grid points (mean or sum)
     batch_size = 32
     num_iters = 25_000
 
@@ -477,7 +478,7 @@ def train(i: int):
     if wandb_enabled:
         wandb.init(
             project="vano",
-            name=f"Mean β=1e-5 (MSE)",
+            name=f"Mean β=1e-5 (Paper)",
             config={
                 "S": S,
                 "beta": beta,
@@ -524,15 +525,23 @@ def train(i: int):
                 # ELBO = E_p(eps)[log p(x | z=g(eps, x))] - KL(q(z | x) || p(z))
                 # ----------------------------------------------------------------
                 # Reconstruction loss: E_Q(z|x)[1/2 ||D(z)||^2_L2 - <D(z), u>^~]
-                # 1/2 * ||D(z)||^2_(L^2)
-                Dz_norm = 0.5 * torch.norm(u_hat_samples, dim=-1).pow(2)
+                # 1/2 * ||D(z)||^2_(L^2) ~= sum_{i=1}^m D(z)(x_i) * D(z)(x_i) (?)
+                Dz_norm = 0.5 * (u_hat_samples * u_hat_samples)
                 # <D(z), u>^~ ~= sum_{i=1}^m D(z)(x_i) * u(x_i)
-                inner_prod = (u_hat_samples * u).sum(axis=-1)
-                reconstr_loss = (Dz_norm - inner_prod).mean(axis=0).mean()
+                inner_prod = u_hat_samples * u
+                reconstr_loss = Dz_norm - inner_prod
             elif recon_loss == 'mse':
-                reconstr_loss = F.mse_loss(u_hat_samples, u, reduction='none').mean(axis=-1).mean(axis=0).mean()
+                reconstr_loss = F.mse_loss(u_hat_samples, u, reduction='none')
             elif recon_loss == 'ce':
-                reconstr_loss = F.binary_cross_entropy(u_hat_samples, u, reduction='none').mean(axis=-1).mean(axis=0).mean()
+                reconstr_loss = F.binary_cross_entropy(u_hat_samples, u, reduction='none')
+
+            # Reduction
+            if recon_reduction == 'mean':
+                reconstr_loss = reconstr_loss.mean(axis=-1)  # Mean over grid points
+            elif recon_reduction == 'sum':
+                reconstr_loss = reconstr_loss.sum(axis=-1)   # Sum over grid points
+            reconstr_loss = reconstr_loss.mean(axis=0)  # Mean over S
+            reconstr_loss = reconstr_loss.mean(axis=0)  # Mean over batch
 
             kl_loss = 0.5 * (mu ** 2 + logvar.exp() - logvar - 1).sum(axis=1).mean()
 
