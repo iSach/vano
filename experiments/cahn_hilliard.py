@@ -418,12 +418,9 @@ def is_slurm():
     return shutil.which('sbatch') is not None
 
 configs = [
-    16.0,
-    20.0,
-    24.0,
-    32.0,
-    48.0,
-    64.0,
+    'paper',
+    'mse',
+    'ce',
 ]
 
 @job(
@@ -497,9 +494,14 @@ def train(i: int):
                 "lr": lr,
                 "lr_decay": lr_decay,
                 "lr_decay_every": lr_decay_every,
-                "experiment-name": "CH_PE_Variance",
+                "experiment-name": "CH_Loss",
             }
         )
+
+    # paper: Approximation of gaussian error in Banach spaces
+    # mse: Typical mean squared error, as for finite data
+    # ce: Cross-entropy loss, as for finite data (with Bernoulli assumption)
+    recon_loss = configs[i]
 
     step = 0
     num_epochs = num_iters // len(train_loader)
@@ -511,22 +513,32 @@ def train(i: int):
 
             u, u_hat = u.flatten(1), u_hat.flatten(1)
 
-            # ELBO = E_p(eps)[log p(x | z=g(eps, x))] - KL(q(z | x) || p(z))
-            # ----------------------------------------------------------------
-            # Reconstruction loss: E_Q(z|x)[1/2 ||D(z)||^2_L2 - <D(z), u>^~]
             # Sample S values of z
             eps = torch.randn(S, *z.shape, device=z.device)
             z_samples = mu.unsqueeze(0) + eps * torch.exp(0.5 * logvar).unsqueeze(0)
             z_samples = z_samples.view(S * batch_size, *z_samples.shape[2:])
             u_hat_samples = vano.decoder(grid[:1].expand(z_samples.shape[0], *grid.shape[1:]), z_samples).squeeze()
             u_hat_samples = u_hat_samples.view(S, batch_size, *u_hat_samples.shape[1:])
+            # u^: Shape=[4, bs, 64, 64, 1]
             u_hat_samples = u_hat_samples.flatten(start_dim=-2)
-            # 1/2 * ||D(z)||^2_(L^2)
-            Dz_norm = 0.5 * torch.norm(u_hat_samples, dim=-1).pow(2)
-            # <D(z), u>^~ ~= sum_{i=1}^m D(z)(x_i) * u(x_i)
-            inner_prod = (u_hat_samples * u[None, ...]).sum(axis=-1)
-            reconstr_loss = (Dz_norm - inner_prod).mean(axis=0).mean()
-            #reconstr_loss = F.mse_loss(u_hat, u, reduction='none').sum(axis=1).mean()
+            # u^: Shape=[4, bs, 4096]
+            # u:  Shape=[bs, 4096]
+            u = u.unsqueeze(0).expand(S, *u.shape)
+            # u:  Shape=[4, bs, 4096]
+
+            if recon_loss == 'paper':
+                # ELBO = E_p(eps)[log p(x | z=g(eps, x))] - KL(q(z | x) || p(z))
+                # ----------------------------------------------------------------
+                # Reconstruction loss: E_Q(z|x)[1/2 ||D(z)||^2_L2 - <D(z), u>^~]
+                # 1/2 * ||D(z)||^2_(L^2)
+                Dz_norm = 0.5 * torch.norm(u_hat_samples, dim=-1).pow(2)
+                # <D(z), u>^~ ~= sum_{i=1}^m D(z)(x_i) * u(x_i)
+                inner_prod = (u_hat_samples * u).sum(axis=-1)
+                reconstr_loss = (Dz_norm - inner_prod).mean(axis=0).mean()
+            elif recon_loss == 'mse':
+                reconstr_loss = F.mse_loss(u_hat_samples, u, reduction='none').sum(axis=-1).mean(axis=0).mean()
+            elif recon_loss == 'ce':
+                reconstr_loss = F.binary_cross_entropy(u_hat_samples, u, reduction='none').sum(axis=-1).mean(axis=0).mean()
 
             kl_loss = 0.5 * (mu ** 2 + logvar.exp() - logvar - 1).sum(axis=1).mean()
 
