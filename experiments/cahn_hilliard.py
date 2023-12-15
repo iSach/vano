@@ -440,7 +440,7 @@ def train(i: int):
         device = 'cpu'
 
     # Data
-    N_train = configs[i]  # 16384
+    N_train = 8192
     train_data = load_data(N_train, case=1, device=device)
     train_dataset = torch.utils.data.TensorDataset(*train_data)
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=32, shuffle=True)
