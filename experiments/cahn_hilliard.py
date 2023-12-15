@@ -151,7 +151,7 @@ class NeRFDecoder(Decoder):
         self.pe_interleave = pe_interleave
         self.pe_var = pe_var
         self.m = self.latent_dim // 2
-        self.pe_dist = dists.Normal(0, self.pe_var)
+        self.pe_dist = dists.Normal(0.0, self.pe_var)
         self.B = self.pe_dist.sample((self.m, input_dim)).to(device)
 
         # (original) NeRF-like architecture
@@ -456,10 +456,6 @@ def train(i: int):
     decoder = 'nerf'
     vano = VANO(
         decoder=decoder,
-        decoder_args={
-            "pe_var": configs[i],
-            "pe_interleave": False,
-        },
         device=device
     ).to(device)
     vano.train()
