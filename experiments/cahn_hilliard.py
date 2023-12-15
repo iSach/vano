@@ -418,16 +418,14 @@ def train(i: int):
     else:
         device = 'cpu'
 
-    i += 1
-
     # Data
     N_train = 16384
-    train_data = load_data(N_train, case=i, device=device)
+    train_data = load_data(N_train, case=1, device=device)
     train_dataset = torch.utils.data.TensorDataset(*train_data)
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=32, shuffle=True)
 
     N_test = 128
-    test_data = load_data(N_test, case=i, device=device)
+    test_data = load_data(N_test, case=1, device=device)
     test_dataset = torch.utils.data.TensorDataset(*test_data)
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=32, shuffle=True)
     
