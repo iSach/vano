@@ -477,7 +477,7 @@ def train(i: int):
     if wandb_enabled:
         wandb.init(
             project="vano",
-            name=f"Mean β=1.0 (CE)",
+            name=f"Mean β=1.0 (MSE)",
             config={
                 "S": S,
                 "beta": beta,
