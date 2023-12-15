@@ -131,7 +131,7 @@ class Decoder(nn.Module):
 
 # NeRF-like decoder
 class NeRFDecoder(Decoder):
-    def __init__(self, latent_dim=32, input_dim=2, output_dim=1):
+    def __init__(self, latent_dim=32, input_dim=2, output_dim=1, device='cpu'):
         super().__init__(latent_dim, input_dim, output_dim)
 
         self.activ = nn.GELU()
@@ -139,7 +139,7 @@ class NeRFDecoder(Decoder):
         self.pe_var = 10
         self.m = self.latent_dim / 2
         self.pe_dist = dists.Normal(0, self.pe_var)
-        self.B = self.pe_dist.sample((self.m, input_dim))
+        self.B = self.pe_dist.sample((self.m, input_dim)).to(device)
 
         # (original) NeRF-like architecture
         self.mlp_x = nn.Sequential(
@@ -352,7 +352,7 @@ class VANO(nn.Module):
         self.output_dim = output_dim
     
         self.encoder = Encoder(latent_dim, input_dim, output_dim)
-        self.decoder = DECODERS[decoder](latent_dim, input_dim, output_dim)
+        self.decoder = DECODERS[decoder](latent_dim, input_dim, output_dim, device=device)
 
         ls = torch.linspace(0, 1, 64).to(device)
         self.grid = torch.stack(torch.meshgrid(ls, ls, indexing='ij'), dim=-1).unsqueeze(0)
@@ -409,6 +409,8 @@ def train(i: int):
         device = 'mps'
     else:
         device = 'cpu'
+
+    i += 1
 
     # Data
     N_train = 2048#16384
