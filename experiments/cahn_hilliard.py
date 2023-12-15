@@ -129,6 +129,7 @@ class Decoder(nn.Module):
     
 # TODO make positional encoding separate
 # TODO try with/without positional encoding
+# Seed? For random gaussian fourier features positional encoding
 
 # NeRF-like decoder
 class NeRFDecoder(Decoder):
@@ -417,8 +418,12 @@ def is_slurm():
     return shutil.which('sbatch') is not None
 
 configs = [
-    True,
-    False,
+    16.0,
+    20.0,
+    24.0,
+    32.0,
+    48.0,
+    64.0,
 ]
 
 @job(
@@ -455,7 +460,8 @@ def train(i: int):
     vano = VANO(
         decoder=decoder,
         decoder_args={
-            "pe_interleave": configs[i],
+            "pe_var": configs[i],
+            "pe_interleave": False,
         },
         device=device
     ).to(device)
@@ -491,13 +497,13 @@ def train(i: int):
                 "lr": lr,
                 "lr_decay": lr_decay,
                 "lr_decay_every": lr_decay_every,
-                "experiment-name": "CH_PE_Interleave",
+                "experiment-name": "CH_PE_Variance",
             }
         )
 
     step = 0
     num_epochs = num_iters // len(train_loader)
-    num_epochs = max(num_epochs, 10)  # For experiment on N_train.
+    #num_epochs = max(num_epochs, 10)  # For experiment on N_train.
     for epoch in range(num_epochs):
         for grid, u in train_loader:
             mu, logvar, z, u_hat = vano(u.view(-1, 1, 64, 64))
