@@ -477,7 +477,7 @@ def train(i: int):
     if wandb_enabled:
         wandb.init(
             project="vano",
-            name=f"Sum β=1e-5 (CE)",
+            name=f"Mean β=1e-5 (CE)",
             config={
                 "S": S,
                 "beta": beta,
@@ -530,9 +530,9 @@ def train(i: int):
                 inner_prod = (u_hat_samples * u).sum(axis=-1)
                 reconstr_loss = (Dz_norm - inner_prod).mean(axis=0).mean()
             elif recon_loss == 'mse':
-                reconstr_loss = F.mse_loss(u_hat_samples, u, reduction='none').sum(axis=-1).mean(axis=0).mean()
+                reconstr_loss = F.mse_loss(u_hat_samples, u, reduction='none').mean(axis=-1).mean(axis=0).mean()
             elif recon_loss == 'ce':
-                reconstr_loss = F.binary_cross_entropy(u_hat_samples, u, reduction='none').sum(axis=-1).mean(axis=0).mean()
+                reconstr_loss = F.binary_cross_entropy(u_hat_samples, u, reduction='none').mean(axis=-1).mean(axis=0).mean()
 
             kl_loss = 0.5 * (mu ** 2 + logvar.exp() - logvar - 1).sum(axis=1).mean()
 
