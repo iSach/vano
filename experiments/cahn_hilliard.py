@@ -418,9 +418,7 @@ def is_slurm():
     return shutil.which('sbatch') is not None
 
 configs = [
-    'paper',
-    'mse',
-    'ce',
+    ...
 ]
 
 @job(
@@ -479,7 +477,7 @@ def train(i: int):
     if wandb_enabled:
         wandb.init(
             project="vano",
-            name=f"{configs[i]}",
+            name=f"Sum β=1.0 (Paper)",
             config={
                 "S": S,
                 "beta": beta,
@@ -490,14 +488,14 @@ def train(i: int):
                 "lr": lr,
                 "lr_decay": lr_decay,
                 "lr_decay_every": lr_decay_every,
-                "experiment-name": "CH_Loss",
+                "experiment-name": "CH_Loss_Scaling",
             }
         )
 
     # paper: Approximation of gaussian error in Banach spaces
     # mse: Typical mean squared error, as for finite data
     # ce: Cross-entropy loss, as for finite data (with Bernoulli assumption)
-    recon_loss = configs[i]
+    recon_loss = 'paper'
 
     step = 0
     num_epochs = num_iters // len(train_loader)
