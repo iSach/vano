@@ -132,12 +132,22 @@ class Decoder(nn.Module):
 
 # NeRF-like decoder
 class NeRFDecoder(Decoder):
-    def __init__(self, latent_dim=32, input_dim=2, output_dim=1, pe_var=10.0, use_pe=True, device='cpu'):
+    def __init__(
+            self, 
+            latent_dim=32, 
+            input_dim=2, 
+            output_dim=1, 
+            pe_var=10.0, 
+            use_pe=True, 
+            pe_interleave=True,
+            device='cpu'
+    ):
         super().__init__(latent_dim, input_dim, output_dim)
 
         self.activ = nn.GELU()
 
         self.use_pe = use_pe
+        self.pe_interleave = pe_interleave
         self.pe_var = pe_var
         self.m = self.latent_dim // 2
         self.pe_dist = dists.Normal(0, self.pe_var)
@@ -194,7 +204,12 @@ class NeRFDecoder(Decoder):
             v = torch.einsum('ij, ...j -> ...i', self.B, x)
             cos_v = torch.cos(2 * torch.pi * v)
             sin_v = torch.sin(2 * torch.pi * v)
-            v = torch.cat([cos_v, sin_v], dim=-1)
+            if self.pe_interleave:
+                # [cos, sin, cos, sin, cos, sin...]
+                v = torch.dstack([cos_v, sin_v], dim=-2).flatten(-2, -1)
+            else:
+                # [cos, cos, cos, ..., sin, sin, sin, ...]
+                v = torch.cat([cos_v, sin_v], dim=-1)
         else:
             v = x
 
@@ -402,12 +417,8 @@ def is_slurm():
     return shutil.which('sbatch') is not None
 
 configs = [
-    512,
-    1024,
-    2048,
-    4096,
-    8192,
-    16384,
+    True,
+    False,
 ]
 
 @job(
@@ -443,6 +454,9 @@ def train(i: int):
     decoder = 'nerf'
     vano = VANO(
         decoder=decoder,
+        decoder_args={
+            "pe_interleave": configs[i],
+        },
         device=device
     ).to(device)
     vano.train()
@@ -475,7 +489,7 @@ def train(i: int):
                 "lr": lr,
                 "lr_decay": lr_decay,
                 "lr_decay_every": lr_decay_every,
-                "experiment-name": "CH_PE_NTrain",
+                "experiment-name": "CH_PE_Interleave",
             }
         )
 
