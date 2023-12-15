@@ -461,7 +461,7 @@ def train(i: int):
     # Parameters:
     S = 4  # Monte Carlo samples for evaluating reconstruction loss in ELBO (E_q(z | x) [log p(x | z)])
     #beta = 1e-5  # Weighting of KL divergence in ELBO
-    beta = 1e-5
+    beta = 1e-3
     recon_reduction = 'mean'  # Reduction of reconstruction loss over grid points (mean or sum)
     batch_size = 32
     num_iters = 25_000
@@ -478,10 +478,11 @@ def train(i: int):
     if wandb_enabled:
         wandb.init(
             project="vano",
-            name=f"Mean β=1e-5 (Paper)",
+            name=f"Mean β=1e-3 (Paper)",
             config={
                 "S": S,
                 "beta": beta,
+                "recon_reduction": recon_reduction,
                 "batch_size": batch_size,
                 "num_iters": num_iters,
                 "n_train": N_train,
