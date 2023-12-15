@@ -206,7 +206,7 @@ class NeRFDecoder(Decoder):
             sin_v = torch.sin(2 * torch.pi * v)
             if self.pe_interleave:
                 # [cos, sin, cos, sin, cos, sin...]
-                v = torch.dstack([cos_v, sin_v]).flatten(-2, -1)
+                v = torch.stack([cos_v, sin_v], dim=-1).flatten(-2, -1)
             else:
                 # [cos, cos, cos, ..., sin, sin, sin, ...]
                 v = torch.cat([cos_v, sin_v], dim=-1)
