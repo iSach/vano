@@ -437,7 +437,7 @@ def train(i: int):
         decoder=decoder,
         decoder_args={
             "pe_var": configs[i]
-        }
+        },
         device=device
     ).to(device)
     vano.train()
