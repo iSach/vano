@@ -93,8 +93,9 @@ class Decoder(nn.Module):
             x: (batch_size, input_dim) tensor of spatial locations
             z: (batch_size, latent_dim) tensor of latent representations
         """
-        z = z.view(-1, *([1] * (len(x.shape) - 2)), self.latent_dim)
-        z = z.expand(-1, *x.shape[1:-1], self.latent_dim)
+        _, z_dim = z.shape
+        z = z.view(-1, *([1] * (len(x.shape) - 2)), z_dim)
+        z = z.expand(-1, *x.shape[1:-1], z_dim)
         return z
     
     def forward(self, x, z):
@@ -137,7 +138,7 @@ class NeRFDecoder(Decoder):
         self.activ = nn.GELU()
 
         self.pe_var = 10
-        self.m = self.latent_dim / 2
+        self.m = self.latent_dim // 2
         self.pe_dist = dists.Normal(0, self.pe_var)
         self.B = self.pe_dist.sample((self.m, input_dim)).to(device)
 
@@ -186,18 +187,18 @@ class NeRFDecoder(Decoder):
         sin_v = torch.sin(2 * torch.pi * v)
         v = torch.cat([cos_v, sin_v], dim=-1)
 
-        x = self.mlp_x(x)
+        v = self.mlp_x(v)
         # Perform MLP on z before expanding to avoid
         # extra computations on the expanded z
         # Even if view/expand do not allocate more memory,
         # the operations are still performed on the expanded z.
         z = self.mlp_z(z)
-        # z is [32, 32], reshape to [32, 48, 48, 32]
-        z = self._expand_z(x, z)
-        xz = torch.cat([x, z], dim=-1)
-        xz = self.joint_mlp(xz)
+        # z is [32, 32], reshape to [32, 64, 64, 32]
+        z = self._expand_z(v, z)
+        vz = torch.cat([v, z], dim=-1)
+        vz = self.joint_mlp(vz)
 
-        return xz
+        return vz
     
 class LinearDecoder(Decoder):
     def __init__(self, latent_dim=32, input_dim=2, *args, **kwargs):
