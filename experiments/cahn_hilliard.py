@@ -132,27 +132,39 @@ class Decoder(nn.Module):
 
 # NeRF-like decoder
 class NeRFDecoder(Decoder):
-    def __init__(self, latent_dim=32, input_dim=2, output_dim=1, pe_var=10.0, device='cpu'):
+    def __init__(self, latent_dim=32, input_dim=2, output_dim=1, pe_var=10.0, use_pe=True, device='cpu'):
         super().__init__(latent_dim, input_dim, output_dim)
 
         self.activ = nn.GELU()
 
+        self.use_pe = use_pe
         self.pe_var = pe_var
         self.m = self.latent_dim // 2
         self.pe_dist = dists.Normal(0, self.pe_var)
         self.B = self.pe_dist.sample((self.m, input_dim)).to(device)
 
         # (original) NeRF-like architecture
-        self.mlp_x = nn.Sequential(
-            #nn.Linear(self.input_dim, 256),  # No positional encoding
-            nn.Linear(self.latent_dim, 256),  # With positional encoding
-            self.activ,
-            nn.Linear(256, 256),
-            self.activ,
-            nn.Linear(256, 256),
-            self.activ,
-            nn.Linear(256, 128)
-        )
+        if use_pe:
+            self.mlp_x = nn.Sequential(
+                #nn.Linear(self.input_dim, 256),  # No positional encoding
+                nn.Linear(self.latent_dim, 256),  # With positional encoding
+                self.activ,
+                nn.Linear(256, 256),
+                self.activ,
+                nn.Linear(256, 256),
+                self.activ,
+                nn.Linear(256, 128)
+            )
+        else:
+            self.mlp_x = nn.Sequential(
+                nn.Linear(self.input_dim, 256),  # No positional encoding
+                self.activ,
+                nn.Linear(256, 256),
+                self.activ,
+                nn.Linear(256, 256),
+                self.activ,
+                nn.Linear(256, 128)
+            )
         self.mlp_z = nn.Sequential(
             nn.Linear(self.latent_dim, 4 * self.latent_dim),
             self.activ,
@@ -178,14 +190,13 @@ class NeRFDecoder(Decoder):
             z: (batch_size, latent_dim) tensor of latent representations
         """
 
-        # x is [bs, d=2]
-        # B is [m, d=2]
-        # D = B * x : [bs, m]
-        # if positional encoding:...
-        v = torch.einsum('ij, ...j -> ...i', self.B, x)
-        cos_v = torch.cos(2 * torch.pi * v)
-        sin_v = torch.sin(2 * torch.pi * v)
-        v = torch.cat([cos_v, sin_v], dim=-1)
+        if self.use_pe:
+            v = torch.einsum('ij, ...j -> ...i', self.B, x)
+            cos_v = torch.cos(2 * torch.pi * v)
+            sin_v = torch.sin(2 * torch.pi * v)
+            v = torch.cat([cos_v, sin_v], dim=-1)
+        else:
+            v = x
 
         v = self.mlp_x(v)
         # Perform MLP on z before expanding to avoid
@@ -468,7 +479,7 @@ def train(i: int):
                 "lr": lr,
                 "lr_decay": lr_decay,
                 "lr_decay_every": lr_decay_every,
-                "experiment-name": "CH_PE_Variance",
+                "experiment-name": "CH_PE_Toggle",
             }
         )
 
