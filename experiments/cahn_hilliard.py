@@ -402,8 +402,12 @@ def is_slurm():
     return shutil.which('sbatch') is not None
 
 configs = [
-    True,
-    False,
+    512,
+    1024,
+    2048,
+    4096,
+    8192,
+    16384,
 ]
 
 @job(
@@ -425,7 +429,7 @@ def train(i: int):
         device = 'cpu'
 
     # Data
-    N_train = 16384
+    N_train = configs[i]  # 16384
     train_data = load_data(N_train, case=1, device=device)
     train_dataset = torch.utils.data.TensorDataset(*train_data)
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=32, shuffle=True)
@@ -439,9 +443,6 @@ def train(i: int):
     decoder = 'nerf'
     vano = VANO(
         decoder=decoder,
-        decoder_args={
-            "use_pe": configs[i],
-        },
         device=device
     ).to(device)
     vano.train()
@@ -474,12 +475,13 @@ def train(i: int):
                 "lr": lr,
                 "lr_decay": lr_decay,
                 "lr_decay_every": lr_decay_every,
-                "experiment-name": "CH_PE_Toggle",
+                "experiment-name": "CH_PE_NTrain",
             }
         )
 
     step = 0
     num_epochs = num_iters // len(train_loader)
+    num_epochs = max(num_epochs, 10)  # For experiment on N_train.
     for epoch in range(num_epochs):
         for grid, u in train_loader:
             mu, logvar, z, u_hat = vano(u.view(-1, 1, 64, 64))
