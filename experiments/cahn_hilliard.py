@@ -414,7 +414,7 @@ def train(i: int):
     i += 1
 
     # Data
-    N_train = 2048#16384
+    N_train = 16384
     train_data = load_data(N_train, case=i, device=device)
     train_dataset = torch.utils.data.TensorDataset(*train_data)
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=32, shuffle=True)
@@ -457,7 +457,7 @@ def train(i: int):
                 "lr": lr,
                 "lr_decay": lr_decay,
                 "lr_decay_every": lr_decay_every,
-                "experiment-name": "CH_cases_N2048",
+                "experiment-name": "CH_cases_N16k",
             }
         )
 
