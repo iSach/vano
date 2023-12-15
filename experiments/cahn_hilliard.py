@@ -402,13 +402,8 @@ def is_slurm():
     return shutil.which('sbatch') is not None
 
 configs = [
-    1e-2,
-    1e-1,
-    1.0,
-    2.0,
-    5.0,
-    7.5,
-    10.0
+    True,
+    False,
 ]
 
 @job(
@@ -445,7 +440,7 @@ def train(i: int):
     vano = VANO(
         decoder=decoder,
         decoder_args={
-            "pe_var": configs[i]
+            "use_pe": configs[i],
         },
         device=device
     ).to(device)
