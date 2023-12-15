@@ -25,6 +25,13 @@ import wandb
 # - Attention Decoder (Attention beats concatenation for conditioning neural fields) (Right of Fig. 4)
 #       -- This is not tried in VANO
 
+# Make decoders etc a common thing between experiments, with custom activations, nb of layers etc
+# (ie cleaner overall lol)
+
+# TODO:
+# - Multi-scale
+# - Super-resolution
+
 # NB:
 # - VAE uses multi-head attention between z [Hz x Wz x Dz] and (x, d)
 #   each attention block receives a different channel (Dz) 
@@ -118,34 +125,47 @@ class Decoder(nn.Module):
         z : [batch_size, ..., latent_dim] tensor of latent representations
         """
         raise NotImplementedError
+    
+# TODO make positional encoding separate
+# TODO try with/without positional encoding
 
 # NeRF-like decoder
 class NeRFDecoder(Decoder):
     def __init__(self, latent_dim=32, input_dim=2, output_dim=1):
         super().__init__(latent_dim, input_dim, output_dim)
 
+        self.activ = nn.GELU()
+
+        self.pe_var = 10
+        self.m = self.latent_dim / 2
+        self.pe_dist = dists.Normal(0, self.pe_var)
+        self.B = self.pe_dist.sample((self.m, input_dim))
+
         # (original) NeRF-like architecture
         self.mlp_x = nn.Sequential(
-            nn.Linear(self.input_dim, 128),
-            nn.ReLU(),
-            nn.Linear(128, 256),
-            nn.ReLU(),
-            nn.Linear(256, 32)
+            #nn.Linear(self.input_dim, 256),  # No positional encoding
+            nn.Linear(self.latent_dim, 256),  # With positional encoding
+            self.activ,
+            nn.Linear(256, 256),
+            self.activ,
+            nn.Linear(256, 256),
+            self.activ,
+            nn.Linear(256, 128)
         )
         self.mlp_z = nn.Sequential(
-            nn.Linear(self.latent_dim, 2 * self.latent_dim),
-            nn.ReLU(),
-            nn.Linear(2 * self.latent_dim, 2 * self.latent_dim),
-            nn.ReLU(),
-            nn.Linear(2 * self.latent_dim, 32)
+            nn.Linear(self.latent_dim, 4 * self.latent_dim),
+            self.activ,
+            nn.Linear(4 * self.latent_dim, 4 * self.latent_dim),
+            self.activ,
+            nn.Linear(4 * self.latent_dim, 4 * self.latent_dim),
+            self.activ,
+            nn.Linear(4 * self.latent_dim, 128)
         )
         self.joint_mlp = nn.Sequential(
-            nn.Linear(64, 128),
-            nn.ReLU(),
-            nn.Linear(128, 256),
-            nn.ReLU(),
+            nn.Linear(256, 256),
+            self.activ,
             nn.Linear(256, output_dim),
-            nn.Softplus()
+            nn.Sigmoid()
         )
 
     def forward(self, x, z):
@@ -156,6 +176,16 @@ class NeRFDecoder(Decoder):
             x: (batch_size, input_dim) tensor of spatial locations
             z: (batch_size, latent_dim) tensor of latent representations
         """
+
+        # x is [bs, d=2]
+        # B is [m, d=2]
+        # D = B * x : [bs, m]
+        # if positional encoding:...
+        v = torch.einsum('ij, ...j -> ...i', self.B, x)
+        cos_v = torch.cos(2 * torch.pi * v)
+        sin_v = torch.sin(2 * torch.pi * v)
+        v = torch.cat([cos_v, sin_v], dim=-1)
+
         x = self.mlp_x(x)
         # Perform MLP on z before expanding to avoid
         # extra computations on the expanded z
@@ -342,14 +372,15 @@ class VANO(nn.Module):
         return mean, logvar, z, u_pred
     
 
-def load_data(N=1, device='cpu'):
+def load_data(N=1, case=1, device='cpu'):
     
     dim_range = torch.linspace(0, 1, 64)
     grid = torch.stack(torch.meshgrid(dim_range, dim_range, indexing='ij'), dim=-1)
     grid = torch.stack([grid] * N, dim=0)
 
-    # Load N rows from data/cahn_hilliard/64/case1.npy
-    u = torch.from_numpy(np.load("data/cahn_hilliard/64/case1.npy")[:N])
+    # Load N rows from data/cahn_hilliard/64/case{i}.npy
+    u = torch.from_numpy(np.load(f"data/cahn_hilliard/64/case{case}.npy"))
+    u = u[torch.randint(0, u.shape[0], (N,))]
     u = u.float()
 
     return grid.to(device), u.to(device)
@@ -358,9 +389,7 @@ def is_slurm():
     return shutil.which('sbatch') is not None
 
 configs = [
-    {
-        "decoder": d
-    } for d in DECODERS.keys()
+    1,2,3
 ]
 
 @job(
@@ -382,18 +411,18 @@ def train(i: int):
         device = 'cpu'
 
     # Data
-    N_train = 2048
-    train_data = load_data(N_train, device=device)
+    N_train = 2048#16384
+    train_data = load_data(N_train, case=i, device=device)
     train_dataset = torch.utils.data.TensorDataset(*train_data)
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=32, shuffle=True)
 
     N_test = 128
-    test_data = load_data(N_test, device=device)
+    test_data = load_data(N_test, case=i, device=device)
     test_dataset = torch.utils.data.TensorDataset(*test_data)
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=32, shuffle=True)
     
     # Training
-    decoder = configs[i]['decoder']
+    decoder = 'nerf'
     vano = VANO(decoder=decoder, device=device).to(device)
     vano.train()
 
@@ -416,7 +445,7 @@ def train(i: int):
     if wandb_enabled:
         wandb.init(
             project="vano",
-            name=f"{decoder}",
+            name=f"Case {i}",
             config={
                 "S": S,
                 "beta": beta,
@@ -425,7 +454,7 @@ def train(i: int):
                 "lr": lr,
                 "lr_decay": lr_decay,
                 "lr_decay_every": lr_decay_every,
-                "experiment-name": "cahn-hilliard",
+                "experiment-name": "CH_cases_N2048",
             }
         )
 
@@ -433,7 +462,6 @@ def train(i: int):
     num_epochs = num_iters // len(train_loader)
     for epoch in range(num_epochs):
         for grid, u in train_loader:
-            print("hello!")
             mu, logvar, z, u_hat = vano(u.view(-1, 1, 64, 64))
             u_hat = u_hat.squeeze()
 
