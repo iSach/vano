@@ -477,7 +477,7 @@ def train(i: int):
     if wandb_enabled:
         wandb.init(
             project="vano",
-            name=f"Sum β=1.0 (MSE)",
+            name=f"Sum β=1.0 (CE)",
             config={
                 "S": S,
                 "beta": beta,
@@ -495,7 +495,7 @@ def train(i: int):
     # paper: Approximation of gaussian error in Banach spaces
     # mse: Typical mean squared error, as for finite data
     # ce: Cross-entropy loss, as for finite data (with Bernoulli assumption)
-    recon_loss = 'mse'
+    recon_loss = 'ce'
 
     step = 0
     num_epochs = num_iters // len(train_loader)
