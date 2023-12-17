@@ -468,7 +468,7 @@ def train(i: int):
         device = 'cpu'
 
     # Data
-    batch_size = 2
+    batch_size = 16
 
     N_train = 4096
     train_data = load_data(N_train, device=device)
