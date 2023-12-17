@@ -284,11 +284,11 @@ class DistribCatDecoder(Decoder):
         """
         super().__init__(latent_dim, input_dim, output_dim)
 
-        nb_hidden_layers = 8
+        nb_hidden_layers = 2
         
         self.split_zdim = self.latent_dim // nb_hidden_layers
 
-        self.nb_neurons = 512
+        self.nb_neurons = 64
         self.input_lin = nn.Linear(self.input_dim, self.nb_neurons)
         # 8 hidden layers
         self.hidden_lins = nn.ModuleList([
@@ -471,12 +471,12 @@ def train(i: int):
     N_train = 4096
     train_data = load_data(N_train, device=device)
     train_dataset = torch.utils.data.TensorDataset(*train_data)
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=16, shuffle=True)
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=True)
 
     N_test = 128
     test_data = load_data(N_test, device=device)
     test_dataset = torch.utils.data.TensorDataset(*test_data)
-    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=16, shuffle=True)
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=1, shuffle=True)
     
     # Training
     decoder = 'distribcat'
