@@ -491,7 +491,7 @@ def train(i: int):
     print(f"VANO has {sum(p.numel() for p in vano.parameters())} parameters.")
 
     # Parameters:
-    S = 1  # Monte Carlo samples for evaluating reconstruction loss in ELBO (E_q(z | x) [log p(x | z)])
+    S = 4  # Monte Carlo samples for evaluating reconstruction loss in ELBO (E_q(z | x) [log p(x | z)])
     #beta = 1e-5  # Weighting of KL divergence in ELBO
     beta = 1e-4
     recon_reduction = 'mean'  # Reduction of reconstruction loss over grid points (mean or sum)
