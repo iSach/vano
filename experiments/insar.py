@@ -463,20 +463,22 @@ def train(i: int):
     if torch.cuda.is_available():
         device = 'cuda'
     elif torch.backends.mps.is_available():
-        device = 'cpu'
+        device = 'mps'
     else:
         device = 'cpu'
 
     # Data
+    batch_size = 2
+
     N_train = 4096
     train_data = load_data(N_train, device=device)
     train_dataset = torch.utils.data.TensorDataset(*train_data)
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=True)
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 
     N_test = 128
     test_data = load_data(N_test, device=device)
     test_dataset = torch.utils.data.TensorDataset(*test_data)
-    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=1, shuffle=True)
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
     
     # Training
     decoder = 'distribcat'
@@ -493,7 +495,6 @@ def train(i: int):
     #beta = 1e-5  # Weighting of KL divergence in ELBO
     beta = 1e-4
     recon_reduction = 'mean'  # Reduction of reconstruction loss over grid points (mean or sum)
-    batch_size = 16
     num_iters = 25_000
 
     # Exponential decay of every 1000 iterations by 0.9
@@ -527,7 +528,7 @@ def train(i: int):
     # paper: Approximation of gaussian error in Banach spaces
     # mse: Typical mean squared error, as for finite data
     # ce: Cross-entropy loss, as for finite data (with Bernoulli assumption)
-    recon_loss = 'ce'
+    recon_loss = 'mse'
 
     step = 0
     num_epochs = num_iters // len(train_loader)
@@ -597,15 +598,15 @@ def train(i: int):
                     vano.eval()
 
                     # ----- Reconstruction Image -----
-                    test_u = test_dataset[0][1]
+                    test_u = test_dataset[0][1].to(device)
                     test_u_hat = vano(test_u.view(-1, 1, 128, 128))[3].squeeze()
                     reconstr_img = torch.cat([test_u, test_u_hat], axis=1).detach().cpu().numpy()
                     reconstr_img = plt.get_cmap('viridis')(reconstr_img)[:, :, :3]
                     log_dict["reconstr_img"] = wandb.Image(reconstr_img)
 
                     # ----- Latent walk -----
-                    u_start = test_dataset[0][1]
-                    u_end = test_dataset[torch.randint(0, len(test_dataset), (1,))][1].squeeze()
+                    u_start = test_dataset[0][1].to(device)
+                    u_end = test_dataset[torch.randint(0, len(test_dataset), (1,))][1].squeeze().to(device)
                     us = torch.stack([u_start, u_end]).view(-1, 1, 128, 128)
                     zs = vano.encoder(us)[0]
                     z_start = zs[0]
