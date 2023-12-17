@@ -284,7 +284,7 @@ class DistribCatDecoder(Decoder):
         """
         super().__init__(latent_dim, input_dim, output_dim)
 
-        nb_hidden_layers = 2
+        nb_hidden_layers = 8
         
         self.split_zdim = self.latent_dim // nb_hidden_layers
 
