@@ -621,5 +621,6 @@ if __name__ == "__main__":
         train,
         backend=backend,
         export="ALL",
+        shell="/bin/sh",
         env=["export WANDB_SILENT=true"],
     )
