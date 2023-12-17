@@ -1,5 +1,6 @@
 import numpy as np
 from functools import partial
+import torch
 
 # -----------------------------------------------------------------------------
 #                     Generalized Maximum Mean Discrepancy
@@ -107,3 +108,41 @@ plt.axhline(gmmd, color="red", linestyle="--")
 plt.axvline(sigmas[np.argmax(mmds)], color="red", linestyle="--")
 plt.title("Generalized Maximum Mean Discrepancy")
 plt.show()
+
+
+# -----------------------------------------------------------------------------
+#                     Circular Distances
+#                           InSAR
+# -----------------------------------------------------------------------------
+
+# Directional statistics
+def circular_var(x, dim=None):
+    #R = torch.sqrt((x.mean(dim=(1,2))**2).sum(dim=1))
+    phase = torch.atan2(x[:,:,:,1], x[:,:,:,0])
+    phase = (phase + np.pi) % (2 * np.pi) - np.pi
+    
+    C1 = torch.cos(phase).sum(dim=(1,2))
+    S1 = torch.sin(phase).sum(dim=(1,2))
+    R1 = torch.sqrt(C1**2 + S1**2) / (phase.shape[1]*phase.shape[2])
+    return 1 - R1
+
+def circular_skew(x):
+    phase = torch.atan2(x[:,:,:,1], x[:,:,:,0])
+    phase = (phase + np.pi) % (2 * np.pi) - np.pi
+    
+    C1 = torch.cos(phase).sum(dim=(1,2))
+    S1 = torch.sin(phase).sum(dim=(1,2))
+    R1 = torch.sqrt(C1**2 + S1**2) / (phase.shape[1]*phase.shape[2])
+    
+    C2 = torch.cos(2*phase).sum(dim=(1,2))
+    S2 = torch.sin(2*phase).sum(dim=(1,2))
+    R2 = torch.sqrt(C2**2 + S2**2) / (phase.shape[1]*phase.shape[2])
+    
+    T1 = torch.atan2(S1, C1)
+    T2 = torch.atan2(S2, C2)
+
+    return R2 * torch.sin(T2 - 2*T1) / (1 - R1)**(3/2)
+
+
+var = circular_var(x_train)
+plt.hist(var.numpy(), bins=np.linspace(0.0, 1.0, 25), histtype='step', linewidth=2.0)

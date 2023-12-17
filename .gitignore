@@ -3,3 +3,6 @@ wandb/
 .wandb/
 VANO.code-workspace
 **/*.npy
+**/*.int
+**/*.int.xml
+**/*.int.aux.xml
