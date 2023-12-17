@@ -288,7 +288,7 @@ class DistribCatDecoder(Decoder):
         
         self.split_zdim = self.latent_dim // nb_hidden_layers
 
-        self.nb_neurons = 256
+        self.nb_neurons = 512
         self.input_lin = nn.Linear(self.input_dim, self.nb_neurons)
         # 8 hidden layers
         self.hidden_lins = nn.ModuleList([
