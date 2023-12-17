@@ -80,7 +80,7 @@ class Encoder(nn.Module):
         return mean, logvar
     
 class Decoder(nn.Module):
-    def __init__(self, latent_dim=32, input_dim=2, output_dim=1):
+    def __init__(self, latent_dim=256, input_dim=2, output_dim=1):
         super().__init__()
 
         self.latent_dim = latent_dim
@@ -369,7 +369,7 @@ DECODERS = {
 
 class VANO(nn.Module):
     def __init__(self, 
-                 latent_dim=32, 
+                 latent_dim=256, 
                  input_dim=2, 
                  output_dim=1, 
                  decoder="nerf",
