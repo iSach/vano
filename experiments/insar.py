@@ -8,10 +8,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import shutil
 
-import sys
-sys.path.append("..")
-from data import insar
-
 # torch distribs
 import torch.distributions as dists
 
@@ -406,6 +402,33 @@ class VANO(nn.Module):
         return mean, logvar, z, u_pred
     
 # TODO multi-res hash encoding
+    
+import os
+import glob
+def load_insar(n_train=4096, res=128):
+    # Get base folder of python project
+    files = glob.glob(f'../data/insar/data128/*.int', recursive=True)[:n_train]
+    print(f"Found {len(files)} files.")
+    phi_train = torch.zeros(n_train, res, res).float()
+    cos_train = torch.zeros(n_train, res, res).float()
+    sin_train = torch.zeros(n_train, res, res).float()
+    for i, f in enumerate(files):
+        dtype = np.float32
+        nline = 128
+        nsamp = 128
+
+        with open(f, 'rb') as fn:
+            load_arr = np.frombuffer(fn.read(), dtype=dtype)
+            img = np.array(load_arr.reshape((nline, nsamp, -1)))
+
+        phi = np.angle(img[:,:,0] + img[:,:,1]*1j)
+        phi = torch.tensor(phi[:res, :res])
+        
+        phi_train[i] = phi
+        cos_train[i] = torch.cos(phi)
+        sin_train[i] = torch.sin(phi)
+
+    return phi_train, cos_train, sin_train
 
 def load_data(N=1, device='cpu'):
 
@@ -415,7 +438,7 @@ def load_data(N=1, device='cpu'):
     grid = torch.stack(torch.meshgrid(dim_range, dim_range, indexing='ij'), dim=-1)
     grid = torch.stack([grid] * N, dim=0)
 
-    u = insar.load_data(n_train=N)[0]
+    u = load_insar(n_train=N)[0]
 
     return grid.to(device), u.to(device)
 
