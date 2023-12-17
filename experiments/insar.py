@@ -8,6 +8,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import shutil
 
+import sys
+sys.path.append("..")
+from data import insar
+
 # torch distribs
 import torch.distributions as dists
 
@@ -37,7 +41,7 @@ import wandb
 #   each attention block receives a different channel (Dz) 
 
 class Encoder(nn.Module):
-    def __init__(self, latent_dim=32, input_dim=2, output_dim=1):
+    def __init__(self, latent_dim=256, input_dim=2, output_dim=1):
         super(Encoder, self).__init__()
 
         self.latent_dim = latent_dim
@@ -46,24 +50,30 @@ class Encoder(nn.Module):
 
         self.activ = nn.GELU()
 
-        # Input: [output_dim, 64, 64]
+        # Input: [output_dim, 128, 128]
+        # "In all other benchmarks we build encoders using 
+        #   a simple VGG-style deep convolutional network 
+        #   [Simonyan & Zisserman 2014], where in each layer 
+        #   the input feature maps are down-sampled by a factor 
+        #   of 2 using strided convolutions, while the number 
+        #   of channels are doubled."
+        # Note: this is incorrect wrt VGG. VGG uses 1-stride convolutions
+        #       with max pooling (2x2 with stride 2) every 2 convolutions.
         self.seq = nn.Sequential(
-            nn.Conv2d(output_dim, 8, 2),        # [8, 63, 63]
-            self.activ,
-            nn.Conv2d(8, 16, 2),                # [16, 62, 62]
-            self.activ,
-            nn.MaxPool2d(2),                    # [16, 31, 31]
-            nn.Conv2d(16, 32, 2),               # [32, 30, 30]
-            self.activ,
-            nn.Conv2d(32, 64, 2),               # [64, 29, 29]
-            self.activ,
-            nn.MaxPool2d(2),                    # [64, 14, 14]
-            nn.Flatten(),                       # [64 * 14 * 14]
-            nn.Linear(64 * 14 * 14, 256),       # [256]
-            self.activ,
-            nn.Linear(256, 128),                # [128]
-            self.activ,
-            nn.Linear(128, 2 * self.latent_dim) # [2 * latent_dim]
+            nn.Conv2d(1, 8, kernel_size=2, stride=2),  # [8, 64, 64]
+            nn.GELU(),
+            nn.Conv2d(8, 16, kernel_size=2, stride=2),  # [16, 32, 32]
+            nn.GELU(),
+            nn.Conv2d(16, 32, kernel_size=2, stride=2),  # [32, 16, 16]
+            nn.GELU(),
+            nn.Conv2d(32, 64, kernel_size=2, stride=2),  # [64, 8, 8]
+            nn.GELU(),
+            nn.Conv2d(64, 128, kernel_size=2, stride=2),  # [128, 4, 4]
+            nn.GELU(),
+            nn.Conv2d(128, 256, kernel_size=2, stride=2),  # [256, 2, 2]
+            nn.GELU(),
+            nn.Flatten(),  # [1024]
+            nn.Linear(1024, latent_dim * 2),
         )
 
     def forward(self, u):
@@ -272,40 +282,35 @@ class Cat1stDecoder(Decoder):
         return self.mlp(torch.cat([x, z], dim=-1))
 
 class DistribCatDecoder(Decoder):
-    def __init__(self, latent_dim=32, input_dim=2, output_dim=1):
+    def __init__(self, latent_dim=256, input_dim=2, output_dim=1, device='cpu'):
         """
         latent_dim must be divisible by 4 (nb. hidden layers)
         """
         super().__init__(latent_dim, input_dim, output_dim)
-        
-        self.split_zdim = self.latent_dim // 4
 
-        self.lin1 = nn.Linear(self.input_dim, 128)
-        self.lin2 = nn.Linear(128 + self.split_zdim, 128)
-        self.lin3 = nn.Linear(128 + self.split_zdim, 128)
-        self.lin4 = nn.Linear(128 + self.split_zdim, 128)
-        self.lin5 = nn.Linear(128 + self.split_zdim, output_dim)
+        nb_hidden_layers = 8
+        
+        self.split_zdim = self.latent_dim // nb_hidden_layers
+
+        self.nb_neurons = 512
+        self.input_lin = nn.Linear(self.input_dim, self.nb_neurons)
+        # 8 hidden layers
+        self.hidden_lins = nn.ModuleList([
+            nn.Linear(self.nb_neurons + self.split_zdim, self.nb_neurons) for _ in range(nb_hidden_layers - 1)
+        ])
+        self.output_lin = nn.Linear(self.nb_neurons + self.split_zdim, output_dim)
         self.activ = nn.GELU()
-        self.output_activ = nn.Softplus()
 
     def decode(self, x, z):
-        # TODO cleaner with nn.ModuleList or whatever
-        #      put hidden_dim in params etc 
-        zs = torch.split(z, self.split_zdim, dim=-1)  # list of 4 [..., latent_dim/4]
-        x = self.lin1(x)
+        zs = torch.split(z, self.split_zdim, dim=-1)  # list of 8 [..., latent_dim//8]
+        x = self.input_lin(x)
         x = self.activ(x)
-        x = torch.cat([x, zs[0]], dim=-1)
-        x = self.lin2(x)
-        x = self.activ(x)
-        x = torch.cat([x, zs[1]], dim=-1)
-        x = self.lin3(x)
-        x = self.activ(x)
-        x = torch.cat([x, zs[2]], dim=-1)
-        x = self.lin4(x)
-        x = self.activ(x)
-        x = torch.cat([x, zs[3]], dim=-1)
-        x = self.lin5(x)
-        x = self.output_activ(x)
+        for i, lin in enumerate(self.hidden_lins):
+            x = torch.cat([x, zs[i]], dim=-1)
+            x = lin(x)
+            x = self.activ(x)
+        x = torch.cat([x, zs[-1]], dim=-1)
+        x = self.output_lin(x)
         return x
 
 class HyperNetDecoder(Decoder):
@@ -358,10 +363,10 @@ class AttentionDecoder(Decoder):
 
 
 DECODERS = {
-    "nerf": NeRFDecoder,
+    #"nerf": NeRFDecoder,
     #"linear": LinearDecoder,
     #"cat1st": Cat1stDecoder,
-    #"distribcat": DistribCatDecoder,
+    "distribcat": DistribCatDecoder,
     #"hypernet": HyperNetDecoder,
     #"attention": AttentionDecoder
 }
@@ -383,7 +388,7 @@ class VANO(nn.Module):
         self.encoder = Encoder(latent_dim, input_dim, output_dim)
         self.decoder = DECODERS[decoder](latent_dim, input_dim, output_dim, **decoder_args, device=device)
 
-        ls = torch.linspace(0, 1, 64).to(device)
+        ls = torch.linspace(0, 1, 128).to(device)
         self.grid = torch.stack(torch.meshgrid(ls, ls, indexing='ij'), dim=-1).unsqueeze(0)
 
     def forward(self, u):
@@ -400,17 +405,17 @@ class VANO(nn.Module):
 
         return mean, logvar, z, u_pred
     
+# TODO multi-res hash encoding
 
-def load_data(N=1, case=1, device='cpu'):
+def load_data(N=1, device='cpu'):
+
+    # TODO: what is the grid for InSAR?
     
-    dim_range = torch.linspace(0, 1, 64)
+    dim_range = torch.linspace(0, 1, 128)
     grid = torch.stack(torch.meshgrid(dim_range, dim_range, indexing='ij'), dim=-1)
     grid = torch.stack([grid] * N, dim=0)
 
-    # Load N rows from data/cahn_hilliard/64/case{i}.npy
-    u = torch.from_numpy(np.load(f"data/cahn_hilliard/64/case{case}.npy"))
-    u = u[torch.randint(0, u.shape[0], (N,))]
-    u = u.float()
+    u = insar.load_data(n_train=N)[0]
 
     return grid.to(device), u.to(device)
 
@@ -435,28 +440,30 @@ def train(i: int):
     if torch.cuda.is_available():
         device = 'cuda'
     elif torch.backends.mps.is_available():
-        device = 'mps'
+        device = 'cpu'
     else:
         device = 'cpu'
 
     # Data
-    N_train = 8192
-    train_data = load_data(N_train, case=1, device=device)
+    N_train = 4096
+    train_data = load_data(N_train, device=device)
     train_dataset = torch.utils.data.TensorDataset(*train_data)
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=32, shuffle=True)
 
     N_test = 128
-    test_data = load_data(N_test, case=1, device=device)
+    test_data = load_data(N_test, device=device)
     test_dataset = torch.utils.data.TensorDataset(*test_data)
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=32, shuffle=True)
     
     # Training
-    decoder = 'nerf'
+    decoder = 'distribcat'
     vano = VANO(
         decoder=decoder,
         device=device
     ).to(device)
     vano.train()
+
+    print(f"VANO has {sum(p.numel() for p in vano.parameters())} parameters.")
 
     # Parameters:
     S = 4  # Monte Carlo samples for evaluating reconstruction loss in ELBO (E_q(z | x) [log p(x | z)])
@@ -504,7 +511,7 @@ def train(i: int):
     #num_epochs = max(num_epochs, 10)  # For experiment on N_train.
     for epoch in range(num_epochs):
         for grid, u in train_loader:
-            mu, logvar, z, u_hat = vano(u.view(-1, 1, 64, 64))
+            mu, logvar, z, u_hat = vano(u.view(-1, 1, 128, 128))
             u_hat = u_hat.squeeze()
 
             u, u_hat = u.flatten(1), u_hat.flatten(1)
@@ -566,7 +573,7 @@ def train(i: int):
 
                     # ----- Reconstruction Image -----
                     test_u = test_dataset[0][1]
-                    test_u_hat = vano(test_u.view(-1, 1, 64, 64))[3].squeeze()
+                    test_u_hat = vano(test_u.view(-1, 1, 128, 128))[3].squeeze()
                     reconstr_img = torch.cat([test_u, test_u_hat], axis=1).detach().cpu().numpy()
                     reconstr_img = plt.get_cmap('viridis')(reconstr_img)[:, :, :3]
                     log_dict["reconstr_img"] = wandb.Image(reconstr_img)
@@ -574,14 +581,14 @@ def train(i: int):
                     # ----- Latent walk -----
                     u_start = test_dataset[0][1]
                     u_end = test_dataset[torch.randint(0, len(test_dataset), (1,))][1].squeeze()
-                    us = torch.stack([u_start, u_end]).view(-1, 1, 64, 64)
+                    us = torch.stack([u_start, u_end]).view(-1, 1, 128, 128)
                     zs = vano.encoder(us)[0]
                     z_start = zs[0]
                     z_end = zs[1]
                     z_walk = torch.stack([z_start + (z_end - z_start) * (i / 10) for i in range(10)], dim=0)
                     grids = vano.grid.expand(10, *vano.grid.shape[1:])
                     test_u_walk = vano.decoder(grids, z_walk).squeeze()  # [10, 48, 48]
-                    u_null = torch.zeros(64, 64).to(device)
+                    u_null = torch.zeros(128, 128).to(device)
                     first_row = torch.cat([u_start] + 8 * [u_null] + [u_end], dim=1) # [48, 480]
                     # Display latent walk u's next to each other
                     second_row = torch.cat(list(test_u_walk), dim=1)  # [48, 480]
@@ -595,8 +602,8 @@ def train(i: int):
                     z = torch.randn(img_grid_size**2, vano.latent_dim).to(device)
                     grids = vano.grid.expand(img_grid_size**2, *vano.grid.shape[1:])
                     us = vano.decoder(grids, z).squeeze()
-                    us = us.view(img_grid_size, img_grid_size, 64, 64)
-                    us = us.permute(0, 2, 1, 3).reshape(img_grid_size * 64, img_grid_size * 64)
+                    us = us.view(img_grid_size, img_grid_size, 128, 128)
+                    us = us.permute(0, 2, 1, 3).reshape(img_grid_size * 128, img_grid_size * 128)
                     rand_samples = us.detach().cpu().numpy()
                     rand_samples = plt.get_cmap('viridis')(rand_samples)[:, :, :3]
                     log_dict["rand_samples"] = wandb.Image(rand_samples)

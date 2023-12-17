@@ -446,6 +446,7 @@ def train(i: int):
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=32, shuffle=True)
 
     N_test = 128
+    # TODO test and train data must be separate
     test_data = load_data(N_test, case=1, device=device)
     test_dataset = torch.utils.data.TensorDataset(*test_data)
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=32, shuffle=True)
