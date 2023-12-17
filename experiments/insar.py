@@ -407,7 +407,7 @@ import os
 import glob
 def load_insar(n_train=4096, res=128):
     # Get base folder of python project
-    files = glob.glob(f'../data/insar/data128/*.int', recursive=True)[:n_train]
+    files = glob.glob(f'data/insar/data128/*.int', recursive=True)[:n_train]
     print(f"Found {len(files)} files.")
     phi_train = torch.zeros(n_train, res, res).float()
     cos_train = torch.zeros(n_train, res, res).float()
@@ -508,7 +508,7 @@ def train(i: int):
     if wandb_enabled:
         wandb.init(
             project="vano",
-            name=f"Mean β=1.0 (Paper)",
+            name=f"Please work",
             config={
                 "S": S,
                 "beta": beta,
@@ -520,7 +520,7 @@ def train(i: int):
                 "lr": lr,
                 "lr_decay": lr_decay,
                 "lr_decay_every": lr_decay_every,
-                "experiment-name": "CH_Loss_Scaling",
+                "experiment-name": "InSAR",
             }
         )
 
