@@ -451,7 +451,7 @@ configs = [
 
 @job(
     array=len(configs),
-    partition="a5000,tesla,quadro,2080ti",
+    partition="a5000,tesla,quadro",
     cpus=4,
     gpus=1,
     ram="16GB",
