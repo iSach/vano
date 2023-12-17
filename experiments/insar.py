@@ -440,7 +440,7 @@ def load_data(N=1, device='cpu'):
 
     u = load_insar(n_train=N)[0]
 
-    return grid.to(device), u.to(device)
+    return grid, u
 
 def is_slurm():
     return shutil.which('sbatch') is not None
@@ -471,12 +471,12 @@ def train(i: int):
     N_train = 4096
     train_data = load_data(N_train, device=device)
     train_dataset = torch.utils.data.TensorDataset(*train_data)
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=32, shuffle=True)
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=16, shuffle=True)
 
     N_test = 128
     test_data = load_data(N_test, device=device)
     test_dataset = torch.utils.data.TensorDataset(*test_data)
-    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=32, shuffle=True)
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=16, shuffle=True)
     
     # Training
     decoder = 'distribcat'
@@ -491,9 +491,9 @@ def train(i: int):
     # Parameters:
     S = 4  # Monte Carlo samples for evaluating reconstruction loss in ELBO (E_q(z | x) [log p(x | z)])
     #beta = 1e-5  # Weighting of KL divergence in ELBO
-    beta = 1.0
+    beta = 1e-4
     recon_reduction = 'mean'  # Reduction of reconstruction loss over grid points (mean or sum)
-    batch_size = 32
+    batch_size = 16
     num_iters = 25_000
 
     # Exponential decay of every 1000 iterations by 0.9
@@ -534,6 +534,8 @@ def train(i: int):
     #num_epochs = max(num_epochs, 10)  # For experiment on N_train.
     for epoch in range(num_epochs):
         for grid, u in train_loader:
+            grid, u = grid.to(device), u.to(device)
+
             mu, logvar, z, u_hat = vano(u.view(-1, 1, 128, 128))
             u_hat = u_hat.squeeze()
 
