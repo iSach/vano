@@ -582,7 +582,7 @@ def train(i: int):
             log_dict = {
                 "reconstr_loss": reconstr_loss.item(),
                 "kl_loss": kl_loss.item(),
-                "kl_loss_scaled": kl_loss.item(),
+                "kl_loss_scaled": (beta * kl_loss).item(),
                 "loss": loss.item(),
                 "lr": lr_scheduler.get_last_lr()[0]
             }
