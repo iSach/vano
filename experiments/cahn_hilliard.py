@@ -443,7 +443,14 @@ def is_slurm():
     return shutil.which('sbatch') is not None
 
 configs = [
-    ...
+    0.0,
+    1e-5,
+    1e-4,
+    1e-3,
+    1e-2,
+    1e-1,
+    1,
+    10,
 ]
 
 @job(
@@ -487,7 +494,7 @@ def train(i: int):
     # Parameters:
     S = 4  # Monte Carlo samples for evaluating reconstruction loss in ELBO (E_q(z | x) [log p(x | z)])
     #beta = 1e-5  # Weighting of KL divergence in ELBO
-    beta = 1e-4
+    beta = configs[i]  # β
     recon_reduction = 'mean'  # Reduction of reconstruction loss over grid points (mean or sum)
     batch_size = 32
     num_iters = 25_000
@@ -509,7 +516,7 @@ def train(i: int):
     if wandb_enabled:
         wandb.init(
             project="vano",
-            name=f"Better enc/dec, z64, mean",
+            name=f"β={configs[i]}",
             config={
                 "S": S,
                 "beta": beta,
@@ -522,7 +529,7 @@ def train(i: int):
                 "lr": lr,
                 "lr_decay": lr_decay,
                 "lr_decay_every": lr_decay_every,
-                "experiment-name": "CH_viz",
+                "experiment-name": "CH_beta",
             }
         )
 
