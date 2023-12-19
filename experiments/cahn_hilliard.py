@@ -602,7 +602,12 @@ def train(i: int):
                     # ----- Reconstruction Image -----
                     test_u = test_dataset[0][1]
                     test_u_hat = vano(test_u.view(-1, 1, 64, 64))[3].squeeze()
-                    reconstr_img = torch.cat([test_u, test_u_hat], axis=1).detach().cpu().numpy()
+                    test_u_hat_sampled = torch.bernoulli(test_u_hat)
+                    test_u_hat_rounded = test_u_hat.round()
+                    reconstr_img = torch.cat([test_u, 
+                                              test_u_hat,
+                                              test_u_hat_sampled,
+                                              test_u_hat_rounded], axis=1).detach().cpu().numpy()
                     reconstr_img = plt.get_cmap('viridis')(reconstr_img)[:, :, :3]
                     log_dict["reconstr_img"] = wandb.Image(reconstr_img)
 
