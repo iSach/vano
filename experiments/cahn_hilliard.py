@@ -37,7 +37,7 @@ import wandb
 #   each attention block receives a different channel (Dz) 
 
 class Encoder(nn.Module):
-    def __init__(self, latent_dim=32, input_dim=2, output_dim=1):
+    def __init__(self, latent_dim=64, input_dim=2, output_dim=1):
         super(Encoder, self).__init__()
 
         self.latent_dim = latent_dim
@@ -47,6 +47,11 @@ class Encoder(nn.Module):
         self.activ = nn.GELU()
 
         # Input: [output_dim, 64, 64]
+        """
+        Previous version, that is really "VGG-style".
+        The "VGG style" described in the paper is not like this (double conv/relu+pool)
+        but rather uses strided convolutions.
+
         self.seq = nn.Sequential(
             nn.Conv2d(output_dim, 8, 2),        # [8, 63, 63]
             self.activ,
@@ -65,6 +70,24 @@ class Encoder(nn.Module):
             self.activ,
             nn.Linear(128, 2 * self.latent_dim) # [2 * latent_dim]
         )
+        """
+        self.seq = nn.Sequential(
+            nn.Conv2d(output_dim, 8, kernel_size=2, stride=2), # [8, 32, 32]
+            self.activ,
+            nn.Conv2d(8, 16, kernel_size=2, stride=2),         # [16, 16, 16]
+            self.activ,
+            nn.Conv2d(16, 32, kernel_size=2, stride=2),        # [32, 8, 8]
+            self.activ,
+            nn.Conv2d(32, 64, kernel_size=2, stride=2),        # [64, 4, 4]
+            self.activ,
+            nn.Conv2d(32, 64, kernel_size=2, stride=2),        # [64, 2, 2]
+            self.activ,
+            nn.Flatten(),                                       # [64 * 2 * 2]
+            nn.Linear(64 * 2 * 2, 256),                         # [256]
+            self.activ,
+            nn.Linear(256, 2 * self.latent_dim),                # [128]
+        )
+
 
     def forward(self, u):
         out = self.seq(u)
@@ -74,7 +97,7 @@ class Encoder(nn.Module):
         return mean, logvar
     
 class Decoder(nn.Module):
-    def __init__(self, latent_dim=32, input_dim=2, output_dim=1):
+    def __init__(self, latent_dim=64, input_dim=2, output_dim=1):
         super().__init__()
 
         self.latent_dim = latent_dim
@@ -135,7 +158,7 @@ class Decoder(nn.Module):
 class NeRFDecoder(Decoder):
     def __init__(
             self, 
-            latent_dim=32, 
+            latent_dim=64, 
             input_dim=2, 
             output_dim=1, 
             pe_var=10.0, 
@@ -188,6 +211,8 @@ class NeRFDecoder(Decoder):
         self.joint_mlp = nn.Sequential(
             nn.Linear(256, 256),
             self.activ,
+            nn.Linear(256, 256),
+            self.activ,
             nn.Linear(256, output_dim),
             nn.Sigmoid()
         )
@@ -228,7 +253,7 @@ class NeRFDecoder(Decoder):
         return vz
     
 class LinearDecoder(Decoder):
-    def __init__(self, latent_dim=32, input_dim=2, *args, **kwargs):
+    def __init__(self, latent_dim=64, input_dim=2, *args, **kwargs):
         super().__init__(latent_dim, input_dim, output_dim=1)
 
         self.activ = nn.GELU()
@@ -251,7 +276,7 @@ class LinearDecoder(Decoder):
         return self.output_activ(dotprod)
 
 class Cat1stDecoder(Decoder):
-    def __init__(self, latent_dim=32, input_dim=2, output_dim=1):
+    def __init__(self, latent_dim=64, input_dim=2, output_dim=1):
         super().__init__(latent_dim, input_dim, output_dim)
 
         self.activ = nn.GELU()
@@ -272,7 +297,7 @@ class Cat1stDecoder(Decoder):
         return self.mlp(torch.cat([x, z], dim=-1))
 
 class DistribCatDecoder(Decoder):
-    def __init__(self, latent_dim=32, input_dim=2, output_dim=1):
+    def __init__(self, latent_dim=64, input_dim=2, output_dim=1):
         """
         latent_dim must be divisible by 4 (nb. hidden layers)
         """
@@ -309,7 +334,7 @@ class DistribCatDecoder(Decoder):
         return x
 
 class HyperNetDecoder(Decoder):
-    def __init__(self, latent_dim=32, input_dim=2, output_dim=1):
+    def __init__(self, latent_dim=64, input_dim=2, output_dim=1):
         super().__init__(latent_dim, input_dim, output_dim)
 
         self.activ = nn.GELU()
@@ -350,7 +375,7 @@ class HyperNetDecoder(Decoder):
         pass
 
 class AttentionDecoder(Decoder):
-    def __init__(self, latent_dim=32, input_dim=2, output_dim=1):
+    def __init__(self, latent_dim=64, input_dim=2, output_dim=1):
         super().__init__(latent_dim, input_dim, output_dim)
 
     def forward(self, x, z):
@@ -368,7 +393,7 @@ DECODERS = {
 
 class VANO(nn.Module):
     def __init__(self, 
-                 latent_dim=32, 
+                 latent_dim=64, 
                  input_dim=2, 
                  output_dim=1, 
                  decoder="nerf",
@@ -462,8 +487,8 @@ def train(i: int):
     # Parameters:
     S = 4  # Monte Carlo samples for evaluating reconstruction loss in ELBO (E_q(z | x) [log p(x | z)])
     #beta = 1e-5  # Weighting of KL divergence in ELBO
-    beta = 1.0
-    recon_reduction = 'mean'  # Reduction of reconstruction loss over grid points (mean or sum)
+    beta = 1e-4
+    recon_reduction = 'sum'  # Reduction of reconstruction loss over grid points (mean or sum)
     batch_size = 32
     num_iters = 25_000
 
@@ -479,7 +504,7 @@ def train(i: int):
     if wandb_enabled:
         wandb.init(
             project="vano",
-            name=f"Mean β=1.0 (Paper)",
+            name=f"New encoder & 64z",
             config={
                 "S": S,
                 "beta": beta,
@@ -557,6 +582,7 @@ def train(i: int):
             log_dict = {
                 "reconstr_loss": reconstr_loss.item(),
                 "kl_loss": kl_loss.item(),
+                "kl_loss_scaled": kl_loss.item(),
                 "loss": loss.item(),
                 "lr": lr_scheduler.get_last_lr()[0]
             }
