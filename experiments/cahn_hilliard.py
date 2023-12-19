@@ -80,7 +80,7 @@ class Encoder(nn.Module):
             self.activ,
             nn.Conv2d(32, 64, kernel_size=2, stride=2),        # [64, 4, 4]
             self.activ,
-            nn.Conv2d(32, 64, kernel_size=2, stride=2),        # [64, 2, 2]
+            nn.Conv2d(64, 128, kernel_size=2, stride=2),        # [128, 2, 2]
             self.activ,
             nn.Flatten(),                                       # [64 * 2 * 2]
             nn.Linear(64 * 2 * 2, 256),                         # [256]
