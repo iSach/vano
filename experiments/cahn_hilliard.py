@@ -428,7 +428,7 @@ configs = [
     gpus=1,
     ram="16GB",
     time="24:00:00",
-    name="vano",
+    name="vano_viz",
 )
 def train(i: int):
     # Device
@@ -491,7 +491,7 @@ def train(i: int):
                 "lr": lr,
                 "lr_decay": lr_decay,
                 "lr_decay_every": lr_decay_every,
-                "experiment-name": "CH_Loss_Scaling",
+                "experiment-name": "CH_viz",
             }
         )
 
@@ -590,6 +590,14 @@ def train(i: int):
                     latent_walk = plt.get_cmap('viridis')(latent_walk)[:, :, :3]
                     log_dict["latent_walk"] = wandb.Image(latent_walk)
 
+                    latent_walk = torch.bernoulli(torch.cat([first_row, second_row])).detach().cpu().numpy()
+                    latent_walk = plt.get_cmap('viridis')(latent_walk)[:, :, :3]
+                    log_dict["latent_walk_sampled"] = wandb.Image(latent_walk)
+
+                    latent_walk = torch.cat([first_row, second_row]).round().detach().cpu().numpy()
+                    latent_walk = plt.get_cmap('viridis')(latent_walk)[:, :, :3]
+                    log_dict["latent_walk_rounded"] = wandb.Image(latent_walk)
+
                     # ----- Random sampling -----
                     img_grid_size = 10
                     # P(z) = N(0, I)
@@ -601,6 +609,14 @@ def train(i: int):
                     rand_samples = us.detach().cpu().numpy()
                     rand_samples = plt.get_cmap('viridis')(rand_samples)[:, :, :3]
                     log_dict["rand_samples"] = wandb.Image(rand_samples)
+
+                    rand_samples = torch.bernoulli(us).detach().cpu().numpy()
+                    rand_samples = plt.get_cmap('viridis')(rand_samples)[:, :, :3]
+                    log_dict["rand_samples_sampled"] = wandb.Image(rand_samples)
+
+                    rand_samples = us.round().detach().cpu().numpy()
+                    rand_samples = plt.get_cmap('viridis')(rand_samples)[:, :, :3]
+                    log_dict["rand_samples_rounded"] = wandb.Image(rand_samples)
 
                     vano.train()
 
