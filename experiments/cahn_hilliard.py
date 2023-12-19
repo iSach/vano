@@ -488,7 +488,7 @@ def train(i: int):
     S = 4  # Monte Carlo samples for evaluating reconstruction loss in ELBO (E_q(z | x) [log p(x | z)])
     #beta = 1e-5  # Weighting of KL divergence in ELBO
     beta = 1e-4
-    recon_reduction = 'sum'  # Reduction of reconstruction loss over grid points (mean or sum)
+    recon_reduction = 'mean'  # Reduction of reconstruction loss over grid points (mean or sum)
     batch_size = 32
     num_iters = 25_000
 
@@ -499,15 +499,21 @@ def train(i: int):
     optimizer = topt.Adam(vano.parameters(), lr=lr)
     lr_scheduler = topt.lr_scheduler.StepLR(optimizer, step_size=lr_decay_every, gamma=lr_decay)
 
+    # paper: Approximation of gaussian error in Banach spaces
+    # mse: Typical mean squared error, as for finite data
+    # ce: Cross-entropy loss, as for finite data (with Bernoulli assumption)
+    recon_loss = 'ce'
+
     # W&B
     wandb_enabled = is_slurm()
     if wandb_enabled:
         wandb.init(
             project="vano",
-            name=f"New encoder & 64z",
+            name=f"Better enc/dec, z64, mean",
             config={
                 "S": S,
                 "beta": beta,
+                "recon_loss": recon_loss,
                 "recon_reduction": recon_reduction,
                 "batch_size": batch_size,
                 "num_iters": num_iters,
@@ -519,11 +525,6 @@ def train(i: int):
                 "experiment-name": "CH_viz",
             }
         )
-
-    # paper: Approximation of gaussian error in Banach spaces
-    # mse: Typical mean squared error, as for finite data
-    # ce: Cross-entropy loss, as for finite data (with Bernoulli assumption)
-    recon_loss = 'ce'
 
     step = 0
     num_epochs = num_iters // len(train_loader)
