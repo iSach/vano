@@ -656,6 +656,7 @@ def train(i: int):
                     empty = torch.zeros(max_res, max_res).detach().cpu()
                     test_u = test_dataset[0][1][None, None, ...]
                     multires_samples = [empty]
+                    multires_samples = [vano(test_dataset[0][1].view(-1, 1, DATA_RES, DATA_RES))[3].squeeze().detach().cpu()]
                     multires_decoded = [upsample(test_u).squeeze().detach().cpu()]
                     for res in resolutions:
                         ls = torch.linspace(0, 1, res).to(device)
