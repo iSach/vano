@@ -673,10 +673,10 @@ def train(i: int):
                         multires_samples.append(sample_u_hat.detach().cpu())
                         multires_decoded.append(test_u_hat.detach().cpu())
                     
-                    multires_samples = torch.stack(multires_samples, dim=0)
-                    multires_decoded = torch.stack(multires_decoded, dim=0)
+                    multires_samples = torch.cat(multires_samples, dim=1)
+                    multires_decoded = torch.cat(multires_decoded, dim=1)
 
-                    whole_grid = torch.cat([multires_samples, multires_decoded], dim=2).numpy()
+                    whole_grid = torch.cat([multires_samples, multires_decoded], dim=0).numpy()
                     whole_grid = plt.get_cmap('viridis')(whole_grid)[:, :, :3]
 
                     log_dict["multires"] = wandb.Image(whole_grid)
