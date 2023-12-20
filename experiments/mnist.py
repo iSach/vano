@@ -140,7 +140,7 @@ class NeRFDecoder(Decoder):
             input_dim=2, 
             output_dim=1, 
             pe_var=10.0, 
-            use_pe=True, 
+            use_pe=False, 
             pe_interleave=True,
             device='cpu'
     ):
