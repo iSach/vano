@@ -398,6 +398,8 @@ class VANO(nn.Module):
 
         if sample:
             z = eps
+            mean = torch.zeros_like(z)
+            logvar = torch.zeros_like(z)
         else:
             mean, logvar = self.encoder(u)
             z = mean + eps * torch.exp(0.5 * logvar)
@@ -650,15 +652,23 @@ def train(i: int):
                         4, 8, 16, 32, 64, 128, 256, 512, 1024
                     }
                     max_res = max(resolutions)
-                    empty = torch.zeros(max_res, max_res).detach().cpu().numpy()
+                    upsample = lambda x: F.interpolate(x, size=(max_res, max_res), mode='nearest').squeeze()
+                    empty = torch.zeros(max_res, max_res).detach().cpu()
                     test_u = test_dataset[0][1]
                     multires_samples = [empty]
-                    multires_decoded = [test_u.detach().cpu()]
+                    multires_decoded = [upsample(test_u.unsqueeze(0).unsqueeze(0)).squeeze().detach().cpu()]
                     for res in resolutions:
                         ls = torch.linspace(0, 1, res).to(device)
                         grid = torch.stack(torch.meshgrid(ls, ls, indexing='ij'), dim=-1).unsqueeze(0)
-                        test_u_hat = vano(test_u.view(-1, 1, DATA_RES, DATA_RES), sample=False, custom_grid=grid)[3].squeeze()
-                        sample_u_hat = vano(test_u.view(-1, 1, DATA_RES, DATA_RES), sample=True, custom_grid=grid)[3].squeeze()
+                        test_u_hat = vano(test_u.view(-1, 1, DATA_RES, DATA_RES), sample=False, custom_grid=grid)[3]
+                        sample_u_hat = vano(test_u.view(-1, 1, DATA_RES, DATA_RES), sample=True, custom_grid=grid)[3]
+
+                        test_u_hat = test_u_hat.permute(0, 3, 1, 2)
+                        sample_u_hat = sample_u_hat.permute(0, 3, 1, 2)
+
+                        # Upsample with no interpolation to max_res
+                        test_u_hat = upsample(test_u_hat)
+                        sample_u_hat = upsample(sample_u_hat)
 
                         multires_samples.append(sample_u_hat.detach().cpu())
                         multires_decoded.append(test_u_hat.detach().cpu())
@@ -670,7 +680,6 @@ def train(i: int):
                     whole_grid = plt.get_cmap('viridis')(whole_grid)[:, :, :3]
 
                     log_dict["multires"] = wandb.Image(whole_grid)
-
 
 
             if wandb_enabled:
