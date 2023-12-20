@@ -389,16 +389,21 @@ class VANO(nn.Module):
         ls = torch.linspace(0, 1, DATA_RES).to(device)
         self.grid = torch.stack(torch.meshgrid(ls, ls, indexing='ij'), dim=-1).unsqueeze(0)
 
-    def forward(self, u):
-        # Encode
-        mean, logvar = self.encoder(u)
-    
-        # Sample
+    def forward(self, u, sample=False, custom_grid=None):
+        """
+        sample: use p(z) instead of p(z | u)
+        custom_grid: use custom res (super or sub resolution)
+        """
         eps = torch.randn(u.shape[0], self.latent_dim, device=u.device)
-        z = mean + eps * torch.exp(0.5 * logvar)
 
-        # Decode
-        grids = self.grid.expand(u.shape[0], *self.grid.shape[1:])
+        if sample:
+            z = eps
+        else:
+            mean, logvar = self.encoder(u)
+            z = mean + eps * torch.exp(0.5 * logvar)
+
+        grid = self.grid if custom_grid is None else custom_grid
+        grids = grid.expand(u.shape[0], *grid.shape[1:])
         u_pred = self.decoder(grids, z)
 
         return mean, logvar, z, u_pred
@@ -428,16 +433,7 @@ def is_slurm():
     return shutil.which('sbatch') is not None
 
 configs = [
-   # 0.0,
-    1e-5,
-    1e-4,
-    1e-2,
-    1e-1,
-    1.0,
-    10.0,
-    100.0,
-    1000.0,
-    10000.0,
+    16
 ]
 
 @job(
@@ -473,6 +469,7 @@ def train(i: int):
     # Training
     decoder = 'nerf'
     vano = VANO(
+        latent_dim=configs[i],
         decoder=decoder,
         device=device
     ).to(device)
@@ -481,7 +478,7 @@ def train(i: int):
     # Parameters:
     S = 4  # Monte Carlo samples for evaluating reconstruction loss in ELBO (E_q(z | x) [log p(x | z)])
     #beta = 1e-5  # Weighting of KL divergence in ELBO
-    beta = configs[i]  # β
+    beta = 1e-3  # β
     recon_reduction = 'mean'  # Reduction of reconstruction loss over grid points (mean or sum)
     batch_size = 32
     num_iters = 25_000
@@ -503,7 +500,7 @@ def train(i: int):
     if wandb_enabled:
         wandb.init(
             project="vano",
-            name=f"β={configs[i]}",
+            name=f"{configs[i]}",
             config={
                 "S": S,
                 "beta": beta,
@@ -514,9 +511,10 @@ def train(i: int):
                 "n_train": N_train,
                 "n_test": N_test,
                 "lr": lr,
+                "latent-dim": vano.latent_dim,
                 "lr_decay": lr_decay,
                 "lr_decay_every": lr_decay_every,
-                "experiment-name": "mnist",
+                "experiment-name": "mnist-multires",
             }
         )
 
@@ -645,6 +643,34 @@ def train(i: int):
                     log_dict["rand_samples_rounded"] = wandb.Image(rand_samples)
 
                     vano.train()
+
+                    # ----- Super Res ----
+
+                    resolutions = {
+                        4, 8, 16, 32, 64, 128, 256, 512, 1024
+                    }
+                    max_res = max(resolutions)
+                    empty = torch.zeros(max_res, max_res).detach().cpu().numpy()
+                    test_u = test_dataset[0][1]
+                    multires_samples = [empty]
+                    multires_decoded = [test_u.detach().cpu()]
+                    for res in resolutions:
+                        ls = torch.linspace(0, 1, res).to(device)
+                        grid = torch.stack(torch.meshgrid(ls, ls, indexing='ij'), dim=-1).unsqueeze(0)
+                        test_u_hat = vano(test_u.view(-1, 1, DATA_RES, DATA_RES), sample=False, custom_grid=grid)[3].squeeze()
+                        sample_u_hat = vano(test_u.view(-1, 1, DATA_RES, DATA_RES), sample=True, custom_grid=grid)[3].squeeze()
+
+                        multires_samples.append(sample_u_hat.detach().cpu())
+                        multires_decoded.append(test_u_hat.detach().cpu())
+                    
+                    multires_samples = torch.stack(multires_samples, dim=0)
+                    multires_decoded = torch.stack(multires_decoded, dim=0)
+
+                    whole_grid = torch.cat([multires_samples, multires_decoded], dim=2).numpy()
+                    whole_grid = plt.get_cmap('viridis')(whole_grid)[:, :, :3]
+
+                    log_dict["multires"] = wandb.Image(whole_grid)
+
 
 
             if wandb_enabled:
