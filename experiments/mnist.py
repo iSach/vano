@@ -131,6 +131,10 @@ class Decoder(nn.Module):
 # TODO make positional encoding separate
 # TODO try with/without positional encoding
 # Seed? For random gaussian fourier features positional encoding
+    
+# TODO positional encoding causes a lot of issues with MNIST
+    # - Maybe due to 28x28?
+    # - Experiment...
 
 # NeRF-like decoder
 class NeRFDecoder(Decoder):
