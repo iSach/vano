@@ -389,26 +389,35 @@ class VANO(nn.Module):
         ls = torch.linspace(0, 1, DATA_RES).to(device)
         self.grid = torch.stack(torch.meshgrid(ls, ls, indexing='ij'), dim=-1).unsqueeze(0)
 
-    def forward(self, u, sample=False, custom_grid=None):
+    def forward(self, u, custom_grid=None):
         """
         sample: use p(z) instead of p(z | u)
         custom_grid: use custom res (super or sub resolution)
         """
-        eps = torch.randn(u.shape[0], self.latent_dim, device=u.device)
 
-        if sample:
-            z = eps
-            mean = torch.zeros_like(z)
-            logvar = torch.zeros_like(z)
-        else:
-            mean, logvar = self.encoder(u)
-            z = mean + eps * torch.exp(0.5 * logvar)
+        mean, logvar = self.encoder(u)
+
+        eps = torch.randn(u.shape[0], self.latent_dim, device=u.device)
+        z = mean + eps * torch.exp(0.5 * logvar)
 
         grid = self.grid if custom_grid is None else custom_grid
         grids = grid.expand(u.shape[0], *grid.shape[1:])
         u_pred = self.decoder(grids, z)
 
         return mean, logvar, z, u_pred
+    
+    def sample(self, device, z=None, n_samples=1, custom_grid=None):
+        """
+        sample: use p(z) instead of p(z | u)
+        custom_grid: use custom res (super or sub resolution)
+        """
+        if z is None:
+            z = torch.randn(n_samples, self.latent_dim, device=device)
+        grid = self.grid if custom_grid is None else custom_grid
+        grids = grid.expand(n_samples, *grid.shape[1:])
+        u_pred = self.decoder(grids, z)
+
+        return u_pred
     
 
 def load_data(N=1, case=1, device='cpu'):
@@ -656,13 +665,13 @@ def train(i: int):
                     empty = torch.zeros(max_res, max_res).detach().cpu()
                     test_u = test_dataset[0][1][None, None, ...]
                     multires_samples = [empty]
-                    multires_samples = [upsample(vano(test_dataset[0][1].view(-1, 1, DATA_RES, DATA_RES))[3].permute(0, 3, 1, 2)).squeeze().detach().cpu()]
                     multires_decoded = [upsample(test_u).squeeze().detach().cpu()]
+                    z = torch.randn(1, vano.latent_dim).to(device)
                     for res in resolutions:
                         ls = torch.linspace(0, 1, res).to(device)
                         grid = torch.stack(torch.meshgrid(ls, ls, indexing='ij'), dim=-1).unsqueeze(0)
-                        test_u_hat = vano(test_u, sample=False, custom_grid=grid)[3]
-                        sample_u_hat = vano(test_u, sample=True, custom_grid=grid)[3]
+                        test_u_hat = vano(test_u, custom_grid=grid)[3]
+                        sample_u_hat = vano.sample(device, z=z, custom_grid=grid)
 
                         test_u_hat = test_u_hat.permute(0, 3, 1, 2)
                         sample_u_hat = sample_u_hat.permute(0, 3, 1, 2)
