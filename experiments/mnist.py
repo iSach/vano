@@ -419,7 +419,7 @@ def load_data(N=1, case=1, device='cpu'):
         train=True,
         download=True,
     )
-
+    u = u.data.to(torch.float32) / 255.0
 
     return grid.to(device), u.to(device)
 

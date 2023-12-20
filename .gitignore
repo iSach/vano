@@ -6,6 +6,11 @@ VANO.code-workspace
 **/*.int
 **/*.int.xml
 **/*.int.aux.xml
+**/*.gz
+**/*.zip
+**/*.tar
+**/*.tar.gz
+**/*-ubyte
 
 # User-specific stuff
 .idea/**/workspace.xml
