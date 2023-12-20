@@ -420,6 +420,7 @@ def load_data(N=1, case=1, device='cpu'):
         download=True,
     )
     u = u.data.to(torch.float32) / 255.0
+    u = u[:N]
 
     return grid.to(device), u.to(device)
 
@@ -428,7 +429,7 @@ def is_slurm():
 
 configs = [
     0.0,
-    1e-3
+  #  1e-3
 ]
 
 @job(
@@ -438,7 +439,7 @@ configs = [
     gpus=1,
     ram="16GB",
     time="24:00:00",
-    name="vano_viz",
+    name="vanomnist",
 )
 def train(i: int):
     # Device
