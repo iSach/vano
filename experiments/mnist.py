@@ -428,8 +428,8 @@ def is_slurm():
     return shutil.which('sbatch') is not None
 
 configs = [
-    0.0,
-  #  1e-3
+   # 0.0,
+    1e-3
 ]
 
 @job(
