@@ -511,7 +511,7 @@ def train(i: int):
     if wandb_enabled:
         wandb.init(
             project="vano",
-            name=f"{configs[i]}",
+            name=f"No PE",
             config={
                 "S": S,
                 "beta": beta,
