@@ -649,7 +649,7 @@ def train(i: int):
                     # ----- Super Res ----
 
                     resolutions = [
-                        4, 8, 16, 32, 64, 128, 256, 512, 1024
+                        4, 8, 16, 28, 64, 128, 256, 512, 1024
                     ]
                     max_res = max(resolutions)
                     upsample = lambda x: F.interpolate(x, size=(max_res, max_res), mode='nearest').squeeze()
