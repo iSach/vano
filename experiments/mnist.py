@@ -648,9 +648,9 @@ def train(i: int):
 
                     # ----- Super Res ----
 
-                    resolutions = {
+                    resolutions = [
                         4, 8, 16, 32, 64, 128, 256, 512, 1024
-                    }
+                    ]
                     max_res = max(resolutions)
                     upsample = lambda x: F.interpolate(x, size=(max_res, max_res), mode='nearest').squeeze()
                     empty = torch.zeros(max_res, max_res).detach().cpu()
@@ -662,8 +662,6 @@ def train(i: int):
                         grid = torch.stack(torch.meshgrid(ls, ls, indexing='ij'), dim=-1).unsqueeze(0)
                         test_u_hat = vano(test_u, sample=False, custom_grid=grid)[3]
                         sample_u_hat = vano(test_u, sample=True, custom_grid=grid)[3]
-
-                        print(test_u_hat.shape)
 
                         test_u_hat = test_u_hat.permute(0, 3, 1, 2)
                         sample_u_hat = sample_u_hat.permute(0, 3, 1, 2)
