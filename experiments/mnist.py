@@ -654,14 +654,16 @@ def train(i: int):
                     max_res = max(resolutions)
                     upsample = lambda x: F.interpolate(x, size=(max_res, max_res), mode='nearest').squeeze()
                     empty = torch.zeros(max_res, max_res).detach().cpu()
-                    test_u = test_dataset[0][1]
+                    test_u = test_dataset[0][1][None, None, ...]
                     multires_samples = [empty]
-                    multires_decoded = [upsample(test_u.unsqueeze(0).unsqueeze(0)).squeeze().detach().cpu()]
+                    multires_decoded = [upsample(test_u).squeeze().detach().cpu()]
                     for res in resolutions:
                         ls = torch.linspace(0, 1, res).to(device)
                         grid = torch.stack(torch.meshgrid(ls, ls, indexing='ij'), dim=-1).unsqueeze(0)
-                        test_u_hat = vano(test_u.view(-1, 1, DATA_RES, DATA_RES), sample=False, custom_grid=grid)[3]
-                        sample_u_hat = vano(test_u.view(-1, 1, DATA_RES, DATA_RES), sample=True, custom_grid=grid)[3]
+                        test_u_hat = vano(test_u, sample=False, custom_grid=grid)[3]
+                        sample_u_hat = vano(test_u, sample=True, custom_grid=grid)[3]
+
+                        print(test_u_hat.shape)
 
                         test_u_hat = test_u_hat.permute(0, 3, 1, 2)
                         sample_u_hat = sample_u_hat.permute(0, 3, 1, 2)
