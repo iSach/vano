@@ -144,7 +144,8 @@ class NeRFDecoder(Decoder):
             input_dim=2, 
             output_dim=1, 
             pe_var=10.0, 
-            use_pe=False, 
+            use_pe=True, 
+            pe_m='half_ldim',
             pe_interleave=True,
             device='cpu'
     ):
@@ -155,7 +156,10 @@ class NeRFDecoder(Decoder):
         self.use_pe = use_pe
         self.pe_interleave = pe_interleave
         self.pe_var = pe_var
-        self.m = self.latent_dim // 2
+        if pe_m == 'half_ldim':
+            self.m = self.latent_dim // 2
+        else:
+            self.m = pe_m
         self.pe_dist = dists.Normal(0.0, self.pe_var)
         self.B = self.pe_dist.sample((self.m, input_dim)).to(device)
 
@@ -448,7 +452,15 @@ def is_slurm():
     return shutil.which('sbatch') is not None
 
 configs = [
-    16
+    2,
+    4,
+    8,
+    16,
+    28,
+    32,
+    48,
+    64,
+    128
 ]
 
 @job(
@@ -486,6 +498,9 @@ def train(i: int):
     vano = VANO(
         latent_dim=configs[i],
         decoder=decoder,
+        decoder_args=dict(
+            pe_m='half_ldim',
+        ),
         device=device
     ).to(device)
     vano.train()
@@ -515,7 +530,7 @@ def train(i: int):
     if wandb_enabled:
         wandb.init(
             project="vano",
-            name=f"No PE",
+            name=f"{vano.latent_dim}",
             config={
                 "S": S,
                 "beta": beta,
@@ -529,7 +544,7 @@ def train(i: int):
                 "latent-dim": vano.latent_dim,
                 "lr_decay": lr_decay,
                 "lr_decay_every": lr_decay_every,
-                "experiment-name": "mnist-multires",
+                "experiment-name": "mnist-latentdim",
             }
         )
 
