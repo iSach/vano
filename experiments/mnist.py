@@ -499,7 +499,8 @@ def train(i: int):
         latent_dim=configs[i],
         decoder=decoder,
         decoder_args=dict(
-            pe_m='half_ldim',
+            use_pe=False,
+            pe_m=0,
         ),
         device=device
     ).to(device)
