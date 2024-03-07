@@ -382,7 +382,7 @@ def train(i: int):
             u_hat_samples = vano.decoder(grid[:1].expand(z_samples.shape[0], *grid.shape[1:]).unsqueeze(-1), z_samples)
             u_hat_samples = u_hat_samples.view(S, batch_size, *u_hat_samples.shape[1:])
             # u^: Shape=[4, bs, 64, 64, 1]
-            u_hat_samples = u_hat_samples.flatten(start_dim=-2)
+            u_hat_samples = u_hat_samples.squeeze(-1)
             # u^: Shape=[4, bs, 4096]
             # u:  Shape=[bs, 4096]
             u = u.unsqueeze(0).expand(S, *u.shape)
