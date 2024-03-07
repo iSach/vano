@@ -141,7 +141,6 @@ class INRDecoder(Decoder):
         # (original) NeRF-like architecture
         if use_pe:
             self.mlp_x = nn.Sequential(
-                #nn.Linear(self.input_dim, 256),  # No positional encoding
                 nn.Linear(self.latent_dim, 256),  # With positional encoding
                 self.activ,
                 nn.Linear(256, 256),
@@ -336,7 +335,7 @@ def train(i: int):
         decoder=decoder,
         decoder_args=dict(
             use_pe=True,
-            pe_m=2,
+            pe_m='half_ldim',
         ),
         device=device
     ).to(device)
@@ -367,6 +366,7 @@ def train(i: int):
     if wandb_enabled:
         wandb.init(
             project="vano",
+            entity='slewin',
             name=f"grf",
             config={
                 "S": S,
@@ -398,9 +398,12 @@ def train(i: int):
             z_samples = mu.unsqueeze(0) + eps * torch.exp(0.5 * logvar).unsqueeze(0)
             z_samples = z_samples.view(S * batch_size, *z_samples.shape[2:])
             u_hat_samples = vano.decoder(grid[:1].expand(z_samples.shape[0], *grid.shape[1:]).unsqueeze(-1), z_samples)
+            print(u_hat_samples.shape)
             u_hat_samples = u_hat_samples.view(S, batch_size, *u_hat_samples.shape[1:])
             # u^: Shape=[4, bs, 64, 64, 1]
-            u_hat_samples = u_hat_samples.flatten(start_dim=-1)
+            print(u_hat_samples.shape)
+            u_hat_samples = u_hat_samples.flatten(start_dim=-2)
+            print(u_hat_samples.shape)
             # u^: Shape=[4, bs, 4096]
             # u:  Shape=[bs, 4096]
             u = u.unsqueeze(0).expand(S, *u.shape)
