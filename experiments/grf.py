@@ -543,6 +543,9 @@ def train(i: int):
 if __name__ == "__main__":
     # Check if srun command exists in os
     backend = "slurm" if is_slurm() else "async"
+    # Check if argument "--local" is given then choose async backend
+    if "--local" in sys.argv:
+        backend = "async"
     print(f"Launching {len(train.array)} jobs with backend {backend}")
     schedule(
         train,
