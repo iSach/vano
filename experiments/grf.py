@@ -300,7 +300,7 @@ def train(i: int):
         device = 'cpu'
 
     # Data
-    N_train = 512
+    N_train = 2048
     train_data = load_data(N_train, device=device)
     train_dataset = torch.utils.data.TensorDataset(*train_data)
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=32, shuffle=True)
@@ -311,7 +311,7 @@ def train(i: int):
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=32, shuffle=True)
 
     # Training
-    decoder = 'inr'
+    decoder = 'linear'
     vano = VANO(
         latent_dim=64,
         decoder=decoder,
@@ -434,8 +434,6 @@ def train(i: int):
                     # ----- Reconstruction Image -----
                     test_u = test_dataset[0][1]
                     test_u_hat = vano(test_u.view(-1, 1, DATA_RES))[3].squeeze()
-
-                    print(test_u_hat)
 
                     fig, ax = plt.subplots()
                     plt.plot(grid[0].cpu(), test_u.cpu(), label='u')
