@@ -237,7 +237,7 @@ class LinearDecoder(Decoder):
         return self.output_activ(dotprod)
 
 DECODERS = {
-    #"inr": INRDecoder,
+    "inr": INRDecoder,
     "linear": LinearDecoder,
 }
 
@@ -330,7 +330,7 @@ def train(i: int):
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=32, shuffle=True)
 
     # Training
-    decoder = 'linear'
+    decoder = 'inr'
     vano = VANO(
         latent_dim=64,
         decoder=decoder,
