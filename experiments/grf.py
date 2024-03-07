@@ -199,16 +199,22 @@ class INRDecoder(Decoder):
         else:
             v = x
 
+        print(v)
+
         v = self.mlp_x(v)
+        print(v)
         # Perform MLP on z before expanding to avoid
         # extra computations on the expanded z
         # Even if view/expand do not allocate more memory,
         # the operations are still performed on the expanded z.
         z = self.mlp_z(z)
+        print(z)
         # z is [32, 32], reshape to [32, 64, 64, 32]
         z = self._expand_z(v, z)
         vz = torch.cat([v, z], dim=-1)
+        print(vz)
         vz = self.joint_mlp(vz)
+        print(vz)
 
         return vz
 
@@ -381,7 +387,7 @@ def train(i: int):
                 "latent-dim": vano.latent_dim,
                 "lr_decay": lr_decay,
                 "lr_decay_every": lr_decay_every,
-                "experiment-name": "mnist-latentdim",
+                "experiment-name": "grf",
             }
         )
 
@@ -398,12 +404,9 @@ def train(i: int):
             z_samples = mu.unsqueeze(0) + eps * torch.exp(0.5 * logvar).unsqueeze(0)
             z_samples = z_samples.view(S * batch_size, *z_samples.shape[2:])
             u_hat_samples = vano.decoder(grid[:1].expand(z_samples.shape[0], *grid.shape[1:]).unsqueeze(-1), z_samples)
-            print(u_hat_samples.shape)
             u_hat_samples = u_hat_samples.view(S, batch_size, *u_hat_samples.shape[1:])
             # u^: Shape=[4, bs, 64, 64, 1]
-            print(u_hat_samples.shape)
             u_hat_samples = u_hat_samples.flatten(start_dim=-2)
-            print(u_hat_samples.shape)
             # u^: Shape=[4, bs, 4096]
             # u:  Shape=[bs, 4096]
             u = u.unsqueeze(0).expand(S, *u.shape)
@@ -416,7 +419,6 @@ def train(i: int):
                 # 1/2 * ||D(z)||^2_(L^2) ~= sum_{i=1}^m D(z)(x_i) * D(z)(x_i) (?)
                 Dz_norm = 0.5 * (u_hat_samples * u_hat_samples)
                 # <D(z), u>^~ ~= sum_{i=1}^m D(z)(x_i) * u(x_i)
-                print(u_hat_samples.shape, u.shape)
                 inner_prod = u_hat_samples * u
                 reconstr_loss = Dz_norm - inner_prod
             elif recon_loss == 'mse':
@@ -458,7 +460,6 @@ def train(i: int):
                     test_u_hat = vano(test_u.view(-1, 1, DATA_RES))[3].squeeze()
 
                     fig, ax = plt.subplots()
-                    print(grid[0].shape, test_u.shape, test_u_hat.shape)
                     plt.plot(grid[0].cpu(), test_u.cpu(), label='u')
                     plt.plot(grid[0].cpu(), test_u_hat.cpu(), label='u_hat')
                     ax.legend()
