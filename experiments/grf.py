@@ -141,40 +141,22 @@ class INRDecoder(Decoder):
         # (original) NeRF-like architecture
         if use_pe:
             self.mlp_x = nn.Sequential(
-                nn.Linear(self.latent_dim, 256),  # With positional encoding
+                nn.Linear(self.latent_dim, 128),  # With positional encoding
                 self.activ,
-                nn.Linear(256, 256),
-                self.activ,
-                nn.Linear(256, 256),
-                self.activ,
-                nn.Linear(256, 128)
             )
         else:
             self.mlp_x = nn.Sequential(
-                nn.Linear(self.input_dim, 256),  # No positional encoding
+                nn.Linear(self.input_dim, 128),  # No positional encoding
                 self.activ,
-                nn.Linear(256, 256),
-                self.activ,
-                nn.Linear(256, 256),
-                self.activ,
-                nn.Linear(256, 128)
             )
         self.mlp_z = nn.Sequential(
-            nn.Linear(self.latent_dim, 4 * self.latent_dim),
+            nn.Linear(self.latent_dim, 128),
             self.activ,
-            nn.Linear(4 * self.latent_dim, 4 * self.latent_dim),
-            self.activ,
-            nn.Linear(4 * self.latent_dim, 4 * self.latent_dim),
-            self.activ,
-            nn.Linear(4 * self.latent_dim, 128)
         )
         self.joint_mlp = nn.Sequential(
-            nn.Linear(256, 256),
+            nn.Linear(in_features=256, out_features=128),
             self.activ,
-            nn.Linear(256, 256),
-            self.activ,
-            nn.Linear(256, output_dim),
-            nn.Sigmoid()
+            nn.Linear(in_features=128, out_features=output_dim),
         )
 
     def forward(self, x, z):
@@ -199,22 +181,16 @@ class INRDecoder(Decoder):
         else:
             v = x
 
-        print(v)
-
         v = self.mlp_x(v)
-        print(v)
         # Perform MLP on z before expanding to avoid
         # extra computations on the expanded z
         # Even if view/expand do not allocate more memory,
         # the operations are still performed on the expanded z.
         z = self.mlp_z(z)
-        print(z)
         # z is [32, 32], reshape to [32, 64, 64, 32]
         z = self._expand_z(v, z)
         vz = torch.cat([v, z], dim=-1)
-        print(vz)
         vz = self.joint_mlp(vz)
-        print(vz)
 
         return vz
 
@@ -458,6 +434,8 @@ def train(i: int):
                     # ----- Reconstruction Image -----
                     test_u = test_dataset[0][1]
                     test_u_hat = vano(test_u.view(-1, 1, DATA_RES))[3].squeeze()
+
+                    print(test_u_hat)
 
                     fig, ax = plt.subplots()
                     plt.plot(grid[0].cpu(), test_u.cpu(), label='u')
