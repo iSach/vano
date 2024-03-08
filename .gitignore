@@ -11,6 +11,7 @@ VANO.code-workspace
 **/*.tar
 **/*.tar.gz
 **/*-ubyte
+**/*.pt
 
 # User-specific stuff
 .idea/**/workspace.xml
@@ -302,3 +303,5 @@ poetry.toml
 pyrightconfig.json
 
 # End of https://www.toptal.com/developers/gitignore/api/macos,python,intellij+all
+
+data/celeba

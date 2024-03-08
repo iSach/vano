@@ -15,6 +15,7 @@ from dawgz import job, after, ensure, schedule
 
 import wandb
 
+
 # TODO:
 # - Linear Decoder: sum z_i * MLP(x_i)
 # - Concat at each layer Decoder (Attention beats concatenation for conditioning neural fields) (Left of Fig. 4)
@@ -72,22 +73,21 @@ class Encoder(nn.Module):
         )
         """
         self.seq = nn.Sequential(
-            nn.Conv2d(output_dim, 8, kernel_size=2, stride=2), # [8, 32, 32]
+            nn.Conv2d(output_dim, 8, kernel_size=2, stride=2),  # [8, 32, 32]
             self.activ,
-            nn.Conv2d(8, 16, kernel_size=2, stride=2),         # [16, 16, 16]
+            nn.Conv2d(8, 16, kernel_size=2, stride=2),  # [16, 16, 16]
             self.activ,
-            nn.Conv2d(16, 32, kernel_size=2, stride=2),        # [32, 8, 8]
+            nn.Conv2d(16, 32, kernel_size=2, stride=2),  # [32, 8, 8]
             self.activ,
-            nn.Conv2d(32, 64, kernel_size=2, stride=2),        # [64, 4, 4]
+            nn.Conv2d(32, 64, kernel_size=2, stride=2),  # [64, 4, 4]
             self.activ,
-            nn.Conv2d(64, 128, kernel_size=2, stride=2),        # [128, 2, 2]
+            nn.Conv2d(64, 128, kernel_size=2, stride=2),  # [128, 2, 2]
             self.activ,
-            nn.Flatten(),                                       # [64 * 2 * 2]
-            nn.Linear(128 * 2 * 2, 256),                         # [256]
+            nn.Flatten(),  # [64 * 2 * 2]
+            nn.Linear(128 * 2 * 2, 256),  # [256]
             self.activ,
-            nn.Linear(256, 2 * self.latent_dim),                # [128]
+            nn.Linear(256, 2 * self.latent_dim),  # [128]
         )
-
 
     def forward(self, u):
         out = self.seq(u)
@@ -95,7 +95,8 @@ class Encoder(nn.Module):
         logvar = out[:, self.latent_dim:]
 
         return mean, logvar
-    
+
+
 class Decoder(nn.Module):
     def __init__(self, latent_dim=64, input_dim=2, output_dim=1):
         super().__init__()
@@ -120,7 +121,7 @@ class Decoder(nn.Module):
         z = z.view(-1, *([1] * (len(x.shape) - 2)), z_dim)
         z = z.expand(-1, *x.shape[1:-1], z_dim)
         return z
-    
+
     def forward(self, x, z):
         """
         Computes u(x) by conditioning on z, a latent representation of u.
@@ -149,7 +150,8 @@ class Decoder(nn.Module):
         z : [batch_size, ..., latent_dim] tensor of latent representations
         """
         raise NotImplementedError
-    
+
+
 # TODO make positional encoding separate
 # TODO try with/without positional encoding
 # Seed? For random gaussian fourier features positional encoding
@@ -157,12 +159,12 @@ class Decoder(nn.Module):
 # NeRF-like decoder
 class NeRFDecoder(Decoder):
     def __init__(
-            self, 
-            latent_dim=64, 
-            input_dim=2, 
-            output_dim=1, 
-            pe_var=10.0, 
-            use_pe=True, 
+            self,
+            latent_dim=64,
+            input_dim=2,
+            output_dim=1,
+            pe_var=10.0,
+            use_pe=True,
             pe_interleave=True,
             device='cpu'
     ):
@@ -180,7 +182,7 @@ class NeRFDecoder(Decoder):
         # (original) NeRF-like architecture
         if use_pe:
             self.mlp_x = nn.Sequential(
-                #nn.Linear(self.input_dim, 256),  # No positional encoding
+                # nn.Linear(self.input_dim, 256),  # No positional encoding
                 nn.Linear(self.latent_dim, 256),  # With positional encoding
                 self.activ,
                 nn.Linear(256, 256),
@@ -251,7 +253,8 @@ class NeRFDecoder(Decoder):
         vz = self.joint_mlp(vz)
 
         return vz
-    
+
+
 class LinearDecoder(Decoder):
     def __init__(self, latent_dim=64, input_dim=2, *args, **kwargs):
         super().__init__(latent_dim, input_dim, output_dim=1)
@@ -275,6 +278,7 @@ class LinearDecoder(Decoder):
         dotprod = prod.sum(axis=-1)
         return self.output_activ(dotprod)
 
+
 class Cat1stDecoder(Decoder):
     def __init__(self, latent_dim=64, input_dim=2, output_dim=1):
         super().__init__(latent_dim, input_dim, output_dim)
@@ -296,13 +300,14 @@ class Cat1stDecoder(Decoder):
     def decode(self, x, z):
         return self.mlp(torch.cat([x, z], dim=-1))
 
+
 class DistribCatDecoder(Decoder):
     def __init__(self, latent_dim=64, input_dim=2, output_dim=1):
         """
         latent_dim must be divisible by 4 (nb. hidden layers)
         """
         super().__init__(latent_dim, input_dim, output_dim)
-        
+
         self.split_zdim = self.latent_dim // 4
 
         self.lin1 = nn.Linear(self.input_dim, 128)
@@ -316,7 +321,8 @@ class DistribCatDecoder(Decoder):
     def decode(self, x, z):
         # TODO cleaner with nn.ModuleList or whatever
         #      put hidden_dim in params etc 
-        zs = torch.split(z, self.split_zdim, dim=-1)  # list of 4 [..., latent_dim/4]
+        zs = torch.split(z, self.split_zdim,
+                         dim=-1)  # list of 4 [..., latent_dim/4]
         x = self.lin1(x)
         x = self.activ(x)
         x = torch.cat([x, zs[0]], dim=-1)
@@ -332,6 +338,7 @@ class DistribCatDecoder(Decoder):
         x = self.lin5(x)
         x = self.output_activ(x)
         return x
+
 
 class HyperNetDecoder(Decoder):
     def __init__(self, latent_dim=64, input_dim=2, output_dim=1):
@@ -374,6 +381,7 @@ class HyperNetDecoder(Decoder):
         # TODO (pay attention to batch and x's shape which will often be [batch_size, grid_H, grid_W, 2])
         pass
 
+
 class AttentionDecoder(Decoder):
     def __init__(self, latent_dim=64, input_dim=2, output_dim=1):
         super().__init__(latent_dim, input_dim, output_dim)
@@ -384,18 +392,19 @@ class AttentionDecoder(Decoder):
 
 DECODERS = {
     "nerf": NeRFDecoder,
-    #"linear": LinearDecoder,
-    #"cat1st": Cat1stDecoder,
-    #"distribcat": DistribCatDecoder,
-    #"hypernet": HyperNetDecoder,
-    #"attention": AttentionDecoder
+    # "linear": LinearDecoder,
+    # "cat1st": Cat1stDecoder,
+    # "distribcat": DistribCatDecoder,
+    # "hypernet": HyperNetDecoder,
+    # "attention": AttentionDecoder
 }
 
+
 class VANO(nn.Module):
-    def __init__(self, 
-                 latent_dim=64, 
-                 input_dim=2, 
-                 output_dim=1, 
+    def __init__(self,
+                 latent_dim=64,
+                 input_dim=2,
+                 output_dim=1,
                  decoder="nerf",
                  decoder_args={},
                  device='cpu'):
@@ -404,17 +413,19 @@ class VANO(nn.Module):
         self.latent_dim = latent_dim
         self.input_dim = input_dim
         self.output_dim = output_dim
-    
+
         self.encoder = Encoder(latent_dim, input_dim, output_dim)
-        self.decoder = DECODERS[decoder](latent_dim, input_dim, output_dim, **decoder_args, device=device)
+        self.decoder = DECODERS[decoder](latent_dim, input_dim, output_dim,
+                                         **decoder_args, device=device)
 
         ls = torch.linspace(0, 1, 64).to(device)
-        self.grid = torch.stack(torch.meshgrid(ls, ls, indexing='ij'), dim=-1).unsqueeze(0)
+        self.grid = torch.stack(torch.meshgrid(ls, ls, indexing='ij'),
+                                dim=-1).unsqueeze(0)
 
     def forward(self, u):
         # Encode
         mean, logvar = self.encoder(u)
-    
+
         # Sample
         eps = torch.randn(u.shape[0], self.latent_dim, device=u.device)
         z = mean + eps * torch.exp(0.5 * logvar)
@@ -424,12 +435,12 @@ class VANO(nn.Module):
         u_pred = self.decoder(grids, z)
 
         return mean, logvar, z, u_pred
-    
+
 
 def load_data(N=1, case=1, device='cpu'):
-    
     dim_range = torch.linspace(0, 1, 64)
-    grid = torch.stack(torch.meshgrid(dim_range, dim_range, indexing='ij'), dim=-1)
+    grid = torch.stack(torch.meshgrid(dim_range, dim_range, indexing='ij'),
+                       dim=-1)
     grid = torch.stack([grid] * N, dim=0)
 
     # Load N rows from data/cahn_hilliard/64/case{i}.npy
@@ -439,8 +450,10 @@ def load_data(N=1, case=1, device='cpu'):
 
     return grid.to(device), u.to(device)
 
+
 def is_slurm():
     return shutil.which('sbatch') is not None
+
 
 configs = [
     0.0,
@@ -452,6 +465,7 @@ configs = [
     1,
     10,
 ]
+
 
 @job(
     array=len(configs),
@@ -475,14 +489,16 @@ def train(i: int):
     N_train = 8192
     train_data = load_data(N_train, case=1, device=device)
     train_dataset = torch.utils.data.TensorDataset(*train_data)
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=32, shuffle=True)
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=32,
+                                               shuffle=True)
 
     N_test = 128
     # TODO test and train data must be separate
     test_data = load_data(N_test, case=1, device=device)
     test_dataset = torch.utils.data.TensorDataset(*test_data)
-    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=32, shuffle=True)
-    
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=32,
+                                              shuffle=True)
+
     # Training
     decoder = 'nerf'
     vano = VANO(
@@ -493,7 +509,7 @@ def train(i: int):
 
     # Parameters:
     S = 4  # Monte Carlo samples for evaluating reconstruction loss in ELBO (E_q(z | x) [log p(x | z)])
-    #beta = 1e-5  # Weighting of KL divergence in ELBO
+    # beta = 1e-5  # Weighting of KL divergence in ELBO
     beta = configs[i]  # β
     recon_reduction = 'mean'  # Reduction of reconstruction loss over grid points (mean or sum)
     batch_size = 32
@@ -504,7 +520,9 @@ def train(i: int):
     lr_decay = 0.9
     lr_decay_every = 1000
     optimizer = topt.Adam(vano.parameters(), lr=lr)
-    lr_scheduler = topt.lr_scheduler.StepLR(optimizer, step_size=lr_decay_every, gamma=lr_decay)
+    lr_scheduler = topt.lr_scheduler.StepLR(optimizer,
+                                            step_size=lr_decay_every,
+                                            gamma=lr_decay)
 
     # paper: Approximation of gaussian error in Banach spaces
     # mse: Typical mean squared error, as for finite data
@@ -535,7 +553,7 @@ def train(i: int):
 
     step = 0
     num_epochs = num_iters // len(train_loader)
-    #num_epochs = max(num_epochs, 10)  # For experiment on N_train.
+    # num_epochs = max(num_epochs, 10)  # For experiment on N_train.
     for epoch in range(num_epochs):
         for grid, u in train_loader:
             mu, logvar, z, u_hat = vano(u.view(-1, 1, 64, 64))
@@ -545,10 +563,14 @@ def train(i: int):
 
             # Sample S values of z
             eps = torch.randn(S, *z.shape, device=z.device)
-            z_samples = mu.unsqueeze(0) + eps * torch.exp(0.5 * logvar).unsqueeze(0)
+            z_samples = mu.unsqueeze(0) + eps * torch.exp(
+                0.5 * logvar).unsqueeze(0)
             z_samples = z_samples.view(S * batch_size, *z_samples.shape[2:])
-            u_hat_samples = vano.decoder(grid[:1].expand(z_samples.shape[0], *grid.shape[1:]), z_samples).squeeze()
-            u_hat_samples = u_hat_samples.view(S, batch_size, *u_hat_samples.shape[1:])
+            u_hat_samples = vano.decoder(
+                grid[:1].expand(z_samples.shape[0], *grid.shape[1:]),
+                z_samples).squeeze()
+            u_hat_samples = u_hat_samples.view(S, batch_size,
+                                               *u_hat_samples.shape[1:])
             # u^: Shape=[4, bs, 64, 64, 1]
             u_hat_samples = u_hat_samples.flatten(start_dim=-2)
             # u^: Shape=[4, bs, 4096]
@@ -568,22 +590,26 @@ def train(i: int):
             elif recon_loss == 'mse':
                 reconstr_loss = F.mse_loss(u_hat_samples, u, reduction='none')
             elif recon_loss == 'ce':
-                reconstr_loss = F.binary_cross_entropy(u_hat_samples, u, reduction='none')
+                reconstr_loss = F.binary_cross_entropy(u_hat_samples, u,
+                                                       reduction='none')
 
             # Reduction
             if recon_reduction == 'mean':
-                reconstr_loss = reconstr_loss.mean(axis=-1)  # Mean over grid points
+                reconstr_loss = reconstr_loss.mean(
+                    axis=-1)  # Mean over grid points
             elif recon_reduction == 'sum':
-                reconstr_loss = reconstr_loss.sum(axis=-1)   # Sum over grid points
+                reconstr_loss = reconstr_loss.sum(
+                    axis=-1)  # Sum over grid points
             reconstr_loss = reconstr_loss.mean(axis=0)  # Mean over S
             reconstr_loss = reconstr_loss.mean(axis=0)  # Mean over batch
 
-            kl_loss = 0.5 * (mu ** 2 + logvar.exp() - logvar - 1).sum(axis=1).mean()
+            kl_loss = 0.5 * (mu ** 2 + logvar.exp() - logvar - 1).sum(
+                axis=1).mean()
 
             loss = reconstr_loss + beta * kl_loss
-            
+
             optimizer.zero_grad()
-            loss.backward()            
+            loss.backward()
             optimizer.step()
             lr_scheduler.step()
 
@@ -604,61 +630,83 @@ def train(i: int):
                     test_u_hat = vano(test_u.view(-1, 1, 64, 64))[3].squeeze()
                     test_u_hat_sampled = torch.bernoulli(test_u_hat)
                     test_u_hat_rounded = test_u_hat.round()
-                    reconstr_img = torch.cat([test_u, 
+                    reconstr_img = torch.cat([test_u,
                                               test_u_hat,
                                               test_u_hat_sampled,
-                                              test_u_hat_rounded], axis=1).detach().cpu().numpy()
-                    reconstr_img = plt.get_cmap('viridis')(reconstr_img)[:, :, :3]
+                                              test_u_hat_rounded],
+                                             axis=1).detach().cpu().numpy()
+                    reconstr_img = plt.get_cmap('viridis')(reconstr_img)[:, :,
+                                   :3]
                     log_dict["reconstr_img"] = wandb.Image(reconstr_img)
 
                     # ----- Latent walk -----
                     u_start = test_dataset[0][1]
-                    u_end = test_dataset[torch.randint(0, len(test_dataset), (1,))][1].squeeze()
+                    u_end = \
+                    test_dataset[torch.randint(0, len(test_dataset), (1,))][
+                        1].squeeze()
                     us = torch.stack([u_start, u_end]).view(-1, 1, 64, 64)
                     zs = vano.encoder(us)[0]
                     z_start = zs[0]
                     z_end = zs[1]
-                    z_walk = torch.stack([z_start + (z_end - z_start) * (i / 10) for i in range(10)], dim=0)
+                    z_walk = torch.stack(
+                        [z_start + (z_end - z_start) * (i / 10) for i in
+                         range(10)], dim=0)
                     grids = vano.grid.expand(10, *vano.grid.shape[1:])
-                    test_u_walk = vano.decoder(grids, z_walk).squeeze()  # [10, 48, 48]
+                    test_u_walk = vano.decoder(grids,
+                                               z_walk).squeeze()  # [10, 48, 48]
                     u_null = torch.zeros(64, 64).to(device)
-                    first_row = torch.cat([u_start] + 8 * [u_null] + [u_end], dim=1) # [48, 480]
+                    first_row = torch.cat([u_start] + 8 * [u_null] + [u_end],
+                                          dim=1)  # [48, 480]
                     # Display latent walk u's next to each other
-                    second_row = torch.cat(list(test_u_walk), dim=1)  # [48, 480]
-                    latent_walk = torch.cat([first_row, second_row]).detach().cpu().numpy()
-                    latent_walk = plt.get_cmap('viridis')(latent_walk)[:, :, :3]
+                    second_row = torch.cat(list(test_u_walk),
+                                           dim=1)  # [48, 480]
+                    latent_walk = torch.cat(
+                        [first_row, second_row]).detach().cpu().numpy()
+                    latent_walk = plt.get_cmap('viridis')(latent_walk)[:, :,
+                                  :3]
                     log_dict["latent_walk"] = wandb.Image(latent_walk)
 
-                    latent_walk = torch.bernoulli(torch.cat([first_row, second_row])).detach().cpu().numpy()
-                    latent_walk = plt.get_cmap('viridis')(latent_walk)[:, :, :3]
+                    latent_walk = torch.bernoulli(torch.cat(
+                        [first_row, second_row])).detach().cpu().numpy()
+                    latent_walk = plt.get_cmap('viridis')(latent_walk)[:, :,
+                                  :3]
                     log_dict["latent_walk_sampled"] = wandb.Image(latent_walk)
 
-                    latent_walk = torch.cat([first_row, second_row]).round().detach().cpu().numpy()
-                    latent_walk = plt.get_cmap('viridis')(latent_walk)[:, :, :3]
+                    latent_walk = torch.cat(
+                        [first_row, second_row]).round().detach().cpu().numpy()
+                    latent_walk = plt.get_cmap('viridis')(latent_walk)[:, :,
+                                  :3]
                     log_dict["latent_walk_rounded"] = wandb.Image(latent_walk)
 
                     # ----- Random sampling -----
                     img_grid_size = 10
                     # P(z) = N(0, I)
-                    z = torch.randn(img_grid_size**2, vano.latent_dim).to(device)
-                    grids = vano.grid.expand(img_grid_size**2, *vano.grid.shape[1:])
+                    z = torch.randn(img_grid_size ** 2, vano.latent_dim).to(
+                        device)
+                    grids = vano.grid.expand(img_grid_size ** 2,
+                                             *vano.grid.shape[1:])
                     us = vano.decoder(grids, z).squeeze()
                     us = us.view(img_grid_size, img_grid_size, 64, 64)
-                    us = us.permute(0, 2, 1, 3).reshape(img_grid_size * 64, img_grid_size * 64)
+                    us = us.permute(0, 2, 1, 3).reshape(img_grid_size * 64,
+                                                        img_grid_size * 64)
                     rand_samples = us.detach().cpu().numpy()
-                    rand_samples = plt.get_cmap('viridis')(rand_samples)[:, :, :3]
+                    rand_samples = plt.get_cmap('viridis')(rand_samples)[:, :,
+                                   :3]
                     log_dict["rand_samples"] = wandb.Image(rand_samples)
 
                     rand_samples = torch.bernoulli(us).detach().cpu().numpy()
-                    rand_samples = plt.get_cmap('viridis')(rand_samples)[:, :, :3]
-                    log_dict["rand_samples_sampled"] = wandb.Image(rand_samples)
+                    rand_samples = plt.get_cmap('viridis')(rand_samples)[:, :,
+                                   :3]
+                    log_dict["rand_samples_sampled"] = wandb.Image(
+                        rand_samples)
 
                     rand_samples = us.round().detach().cpu().numpy()
-                    rand_samples = plt.get_cmap('viridis')(rand_samples)[:, :, :3]
-                    log_dict["rand_samples_rounded"] = wandb.Image(rand_samples)
+                    rand_samples = plt.get_cmap('viridis')(rand_samples)[:, :,
+                                   :3]
+                    log_dict["rand_samples_rounded"] = wandb.Image(
+                        rand_samples)
 
                     vano.train()
-
 
             if wandb_enabled:
                 wandb.log(log_dict, step=step)
@@ -667,6 +715,7 @@ def train(i: int):
 
     # Save model
     torch.save(vano.state_dict(), "vano.pt")
+
 
 if __name__ == "__main__":
     # Check if srun command exists in os

@@ -1,19 +1,17 @@
+import os
+import shutil
+
+import numpy as np
 import torch
+# torch distribs
+import torch.distributions as dists
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as topt
 import torch.utils.data as tud
 import torchvision as tv
 import torchvision.transforms as transforms
-import matplotlib.pyplot as plt
-import numpy as np
-import shutil
-
-# torch distribs
-import torch.distributions as dists
-
-import os
-from dawgz import job, after, ensure, schedule
+from dawgz import job, schedule
 
 import wandb
 
@@ -189,19 +187,19 @@ class NeRFDecoder(Decoder):
             self.mlp_x = nn.Sequential(
                 nn.Linear(self.input_dim, 256),  # No positional encoding
                 self.activ,
-                nn.Linear(256, 256),
-                self.activ,
-                nn.Linear(256, 256),
-                self.activ,
+                # nn.Linear(256, 256),
+                # self.activ,
+                # nn.Linear(256, 256),
+                # self.activ,
                 nn.Linear(256, 128)
             )
         self.mlp_z = nn.Sequential(
             nn.Linear(self.latent_dim, 4 * self.latent_dim),
-            self.activ,
-            nn.Linear(4 * self.latent_dim, 4 * self.latent_dim),
-            self.activ,
-            nn.Linear(4 * self.latent_dim, 4 * self.latent_dim),
-            self.activ,
+            # self.activ,
+            # nn.Linear(4 * self.latent_dim, 4 * self.latent_dim),
+            # self.activ,
+            # nn.Linear(4 * self.latent_dim, 4 * self.latent_dim),
+            # self.activ,
             nn.Linear(4 * self.latent_dim, 128)
         )
         self.joint_mlp = nn.Sequential(
@@ -235,16 +233,22 @@ class NeRFDecoder(Decoder):
         else:
             v = x
 
+        # print(f"v.shape: {v.shape}")  # [B, 218, 178, 2]
         v = self.mlp_x(v)
+        # print(f"v.shape: {v.shape}")  # [B, 218, 178, 128]
         # Perform MLP on z before expanding to avoid
         # extra computations on the expanded z
         # Even if view/expand do not allocate more memory,
         # the operations are still performed on the expanded z.
         z = self.mlp_z(z)
+        # print(f"z.shape: {z.shape}")  # [B, 128]
         # z is [32, 32], reshape to [32, 64, 64, 32]
         z = self._expand_z(v, z)
+        # print(f"z.shape: {z.shape}")  # [B, 218, 178, 128]
         vz = torch.cat([v, z], dim=-1)
+        # print(f"vz.shape: {vz.shape}")  # [16, 218, 178, 256]
         vz = self.joint_mlp(vz)
+        # print(f"vz.shape: {vz.shape}")  # [16, 218, 178, 3]
 
         return vz
 
@@ -414,8 +418,11 @@ class VANO(nn.Module):
 
         ls_h = torch.linspace(0, 1, HEIGHT).to(device)
         ls_w = torch.linspace(0, 1, WIDTH).to(device)
-        self.grid = torch.stack(torch.meshgrid(ls_h, ls_w, indexing='ij'),
-                                dim=-1).unsqueeze(0)
+        self.grid = torch.stack(
+            torch.meshgrid(
+                ls_h, ls_w,
+                indexing='ij'),
+            dim=-1).unsqueeze(0)
 
     def forward(self, u, custom_grid=None):
         """
@@ -429,6 +436,8 @@ class VANO(nn.Module):
         z = mean + eps * torch.exp(0.5 * logvar)
 
         grid = self.grid if custom_grid is None else custom_grid
+        print(grid)
+        print(grid.shape)
         grids = grid.expand(u.shape[0], *grid.shape[1:])
         u_pred = self.decoder(grids, z)
 
@@ -500,12 +509,12 @@ def train(i: int):
     trnsf = tv.transforms.Compose([
         #  transforms.Resize((256, 256)),
         transforms.ToTensor(),
-        lambda x: x.float() / 255.0,
+        # lambda x: x.float() / 255.0,
         #   transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
         # normalization
     ])
 
-    batch_size = 8
+    batch_size = 2
 
     # Data
     N_train = 8192
@@ -514,21 +523,26 @@ def train(i: int):
     train_loader = tud.DataLoader(train_dataset, batch_size=batch_size,
                                   shuffle=True,
                                   generator=torch.Generator(device=device))
+    print(f"Train Data: {len(train_dataset)} samples, {len(train_loader)} "
+          f"batches of size {batch_size}.")
 
-    N_test = 128
+    N_test = 256
     # TODO test and train data must be separate
     test_dataset = tv.datasets.CelebA(root='data', split='test',
                                       transform=trnsf)
     test_loader = tud.DataLoader(test_dataset, batch_size=batch_size,
                                  shuffle=True,
                                  generator=torch.Generator(device=device))
+    print(f"Test Data: {len(test_dataset)} samples, {len(test_loader)} "
+          f"batches of size {batch_size}.")
+    len_test_loader = min(len(test_loader), N_test // batch_size)
 
     torch.set_default_device(device)
 
     # Training
     decoder = 'nerf'
     vano = VANO(
-        latent_dim=configs[i],
+        latent_dim=128,
         decoder=decoder,
         decoder_args=dict(
             use_pe=False,
@@ -557,14 +571,14 @@ def train(i: int):
     # paper: Approximation of gaussian error in Banach spaces
     # mse: Typical mean squared error, as for finite data
     # ce: Cross-entropy loss, as for finite data (with Bernoulli assumption)
-    recon_loss = 'ce'
+    recon_loss = 'mse'
 
     # W&B
     wandb_enabled = is_slurm()
     if wandb_enabled:
         wandb.init(
             project="vano",
-            name=f"test",
+            name=f"mse",
             config={
                 "S": S,
                 "beta": beta,
@@ -582,12 +596,15 @@ def train(i: int):
             }
         )
 
+    len_train_loader = min(len(train_loader), N_train // batch_size)
+
     step = 0
-    num_epochs = num_iters // len(train_loader)
+    num_epochs = num_iters // len_train_loader
+    print(f"Starting for {num_epochs} epochs")
     # num_epochs = max(num_epochs, 10)  # For experiment on N_train.
     for epoch in range(num_epochs):
-        for u, _ in train_loader:
-            print("coucou")
+        for _ in range(len_train_loader):
+            u, _ = next(iter(train_loader))
             ls_h = torch.linspace(0, 1, HEIGHT).to(device)
             ls_w = torch.linspace(0, 1, WIDTH).to(device)
             grid = torch.stack(torch.meshgrid(ls_h, ls_w, indexing='ij'),
@@ -673,20 +690,25 @@ def train(i: int):
                     # ----- Reconstruction Image -----
                     test_u = test_dataset[0][0].to(device)
                     test_u_hat = vano(test_u.view(-1, 3, HEIGHT, WIDTH))[
-                        3].squeeze()
+                        3]
+                    test_u_hat.squeeze_()
                     test_u.squeeze_()
                     test_u = test_u.permute(1, 2, 0)
-                    print(test_u_hat.shape)
                     reconstr_img = torch.cat([test_u,
                                               test_u_hat],
                                              axis=1).detach().cpu().numpy()
-                    log_dict["reconstr_img"] = wandb.Image(reconstr_img)
+                    print((255 *
+                           reconstr_img).astype(
+                        np.uint8))
+                    log_dict["reconstr_img"] = wandb.Image((255 *
+                                                            reconstr_img).astype(
+                        np.uint8))
 
                     # ----- Latent walk -----
                     u_start = test_dataset[0][0].to(device)
                     u_end = \
                         test_dataset[
-                            torch.randint(0, len(test_dataset), (1,),
+                            torch.randint(0, len_test_loader, (1,),
                                           device='cpu')][
                             0].squeeze().to(device)
                     us = torch.stack([u_start, u_end]).view(-1, 3, HEIGHT,
@@ -699,17 +721,19 @@ def train(i: int):
                          range(10)], dim=0)
                     grids = vano.grid.expand(10, *vano.grid.shape[1:])
                     test_u_walk = vano.decoder(grids,
-                                               z_walk).squeeze()  # [10, 48, 48]
+                                               z_walk).squeeze()  # [10, 218, 178, 3]
                     u_null = torch.zeros_like(u_start)
-                    print(u_start.shape, u_null.shape, u_end.shape)
                     first_row = torch.cat([u_start] + 8 * [u_null] + [u_end],
-                                          dim=1)  # [48, 480]
+                                          dim=2).permute(1, 2,
+                                                         0)  # [218, 1780, 3]
                     # Display latent walk u's next to each other
-                    second_row = torch.cat(list(test_u_walk),
-                                           dim=1)  # [48, 480]
+                    second_row = test_u_walk.transpose(0, 1).reshape(HEIGHT,
+                                                                     -1, 3)
                     latent_walk = torch.cat(
                         [first_row, second_row]).detach().cpu().numpy()
-                    log_dict["latent_walk"] = wandb.Image(latent_walk)
+                    log_dict["latent_walk"] = wandb.Image((255 *
+                                                           latent_walk).astype(
+                        np.uint8))
 
                     # ----- Random sampling -----
                     img_grid_size = 10
@@ -720,11 +744,13 @@ def train(i: int):
                                              *vano.grid.shape[1:])
                     us = vano.decoder(grids, z).squeeze()
                     us = us.view(img_grid_size, img_grid_size, HEIGHT,
-                                 WIDTH)
-                    us = us.permute(0, 2, 1, 3).reshape(
-                        img_grid_size * HEIGHT, img_grid_size * WIDTH)
+                                 WIDTH, 3)
+                    us = us.permute(0, 2, 1, 3, 4).reshape(
+                        img_grid_size * HEIGHT, img_grid_size * WIDTH, 3)
                     rand_samples = us.detach().cpu().numpy()
-                    log_dict["rand_samples"] = wandb.Image(rand_samples)
+                    log_dict["rand_samples"] = wandb.Image((255 *
+                                                            rand_samples).astype(
+                        np.uint8))
 
                     vano.train()
 
@@ -735,10 +761,11 @@ def train(i: int):
                     ]
                     max_res = max(resolutions)
                     upsample = lambda x: F.interpolate(x,
-                                                       size=(max_res, max_res),
+                                                       size=(max_res,
+                                                             max_res),
                                                        mode='nearest').squeeze()
-                    empty = torch.zeros(max_res, max_res).detach().cpu()
-                    test_u = test_dataset[0][0][None, None, ...].to(device)
+                    empty = torch.zeros(3, max_res, max_res).detach().cpu()
+                    test_u = test_dataset[0][0][None, ...].to(device)
                     multires_samples = [empty]
                     multires_decoded = [
                         upsample(test_u).squeeze().detach().cpu()]
@@ -762,13 +789,15 @@ def train(i: int):
                         multires_samples.append(sample_u_hat.detach().cpu())
                         multires_decoded.append(test_u_hat.detach().cpu())
 
-                    multires_samples = torch.cat(multires_samples, dim=1)
-                    multires_decoded = torch.cat(multires_decoded, dim=1)
+                    multires_samples = torch.cat(multires_samples, dim=2)
+                    multires_decoded = torch.cat(multires_decoded, dim=2)
 
                     whole_grid = torch.cat(
-                        [multires_samples, multires_decoded], dim=0).numpy()
+                        [multires_samples, multires_decoded],
+                        dim=1).permute(1, 2, 0).numpy()
 
-                    log_dict["multires"] = wandb.Image(whole_grid)
+                    log_dict["multires"] = wandb.Image(
+                        (255 * whole_grid).astype(np.uint8))
 
             if wandb_enabled:
                 wandb.log(log_dict, step=step)

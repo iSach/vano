@@ -169,15 +169,7 @@ class INRDecoder(Decoder):
         """
 
         if self.use_pe:
-            v = torch.einsum('ij, ...j -> ...i', self.B, x)
-            cos_v = torch.cos(2 * torch.pi * v)
-            sin_v = torch.sin(2 * torch.pi * v)
-            if self.pe_interleave:
-                # [cos, sin, cos, sin, cos, sin...]
-                v = torch.stack([cos_v, sin_v], dim=-1).flatten(-2, -1)
-            else:
-                # [cos, cos, cos, ..., sin, sin, sin, ...]
-                v = torch.cat([cos_v, sin_v], dim=-1)
+            v = pos_enc(x)
         else:
             v = x
 
@@ -194,14 +186,25 @@ class INRDecoder(Decoder):
 
         return vz
 
+def pos_enc(x):
+    L = 1.0
+    w = 2 * torch.pi / L
+    m = 8
+    cos_v = torch.cos(w * torch.arange(1, m + 1, device=x.device).float() * x)
+    sin_v = torch.sin(w * torch.arange(1, m + 1, device=x.device).float() * x)
+    cos_sin = torch.stack([cos_v, sin_v], dim=-1).flatten(-2)
+    cos_sin = torch.cat([torch.ones_like(x), cos_sin], dim=-1)
+    return cos_sin
+
 class LinearDecoder(Decoder):
     def __init__(self, latent_dim=64, input_dim=1, *args, **kwargs):
         super().__init__(latent_dim, input_dim, output_dim=1)
 
         self.activ = nn.GELU()
+        self.use_pe = kwargs.get('use_pe', False)
 
         self.mlp = nn.Sequential(
-            nn.Linear(self.input_dim, 128),
+            nn.Linear(1 + 2 * 8, 128) if self.use_pe else nn.Linear(self.input_dim, 128),
             self.activ,
             nn.Linear(128, 128),
             self.activ,
@@ -210,10 +213,11 @@ class LinearDecoder(Decoder):
             nn.Linear(128, latent_dim),
         )
 
-        self.output_activ = nn.Softplus()
+        self.output_activ = nn.Identity()
 
     def decode(self, x, z):
-        prod = self.mlp(x) * z
+        v = pos_enc(x) if self.use_pe else x
+        prod = self.mlp(v) * z
         dotprod = prod.sum(axis=-1)
         return self.output_activ(dotprod)
 
@@ -324,9 +328,9 @@ def train(i: int):
     vano.train()
 
     # Parameters:
-    S = 4  # Monte Carlo samples for evaluating reconstruction loss in ELBO (E_q(z | x) [log p(x | z)])
+    S = 16  # Monte Carlo samples for evaluating reconstruction loss in ELBO (E_q(z | x) [log p(x | z)])
     #beta = 1e-5  # Weighting of KL divergence in ELBO
-    beta = 1e-3  # β
+    beta = 5e-2  # β
     recon_reduction = 'mean'  # Reduction of reconstruction loss over grid points (mean or sum)
     batch_size = 32
     num_iters = 25_000
@@ -341,7 +345,7 @@ def train(i: int):
     # paper: Approximation of gaussian error in Banach spaces
     # mse: Typical mean squared error, as for finite data
     # ce: Cross-entropy loss, as for finite data (with Bernoulli assumption)
-    recon_loss = 'paper'
+    recon_loss = 'mse'
 
     # W&B
     wandb_enabled = is_slurm()
@@ -349,7 +353,7 @@ def train(i: int):
         wandb.init(
             project="vano",
             entity='slewin',
-            name=f"grf",
+            name=f"{beta} & L={vano.latent_dim}",
             config={
                 "S": S,
                 "beta": beta,
@@ -381,12 +385,12 @@ def train(i: int):
             z_samples = z_samples.view(S * batch_size, *z_samples.shape[2:])
             u_hat_samples = vano.decoder(grid[:1].expand(z_samples.shape[0], *grid.shape[1:]).unsqueeze(-1), z_samples)
             u_hat_samples = u_hat_samples.view(S, batch_size, *u_hat_samples.shape[1:])
-            # u^: Shape=[4, bs, 64, 64, 1]
+            # u^: Shape=[S, bs, 128, 1]
             u_hat_samples = u_hat_samples.squeeze(-1)
-            # u^: Shape=[4, bs, 4096]
-            # u:  Shape=[bs, 4096]
+            # u^: Shape=[S, bs, 128]
+            # u:  Shape=[bs, 128]
             u = u.unsqueeze(0).expand(S, *u.shape)
-            # u:  Shape=[4, bs, 4096]
+            # u:  Shape=[S, bs, 128]
 
             if recon_loss == 'paper':
                 # ELBO = E_p(eps)[log p(x | z=g(eps, x))] - KL(q(z | x) || p(z))
@@ -401,6 +405,11 @@ def train(i: int):
                 reconstr_loss = F.mse_loss(u_hat_samples, u, reduction='none')
             elif recon_loss == 'ce':
                 reconstr_loss = F.binary_cross_entropy(u_hat_samples, u, reduction='none')
+
+            # Scaling factor for u
+            # Scale each of the [S, bs] u's by the same factor, their max in absolute value
+            u_scale = u.abs().max(axis=-1).values # [S, bs]
+            reconstr_loss = reconstr_loss * u_scale.unsqueeze(-1)
 
             # Reduction
             if recon_reduction == 'mean':
@@ -431,8 +440,18 @@ def train(i: int):
                 with torch.no_grad():
                     vano.eval()
 
+                    # ----- Linear Decoder Basis -----
+                    if decoder == 'linear':
+                        x = grid[0].unsqueeze(-1)
+                        basis = vano.decoder.mlp(pos_enc(x))
+                        fig, ax = plt.subplots()
+                        # x: [128]
+                        # basis: [128, 16]
+                        log_dict["basis"] = wandb.plot.line_series(x.squeeze().cpu().numpy(), basis.T.cpu().numpy(), title="Basis functions", keys=[f"basis_{i}" for i in range(len(basis.T))], xname="x")
+
                     # ----- Reconstruction Image -----
-                    test_u = test_dataset[0][1]
+                    test_idx = np.random.randint(0, len(test_dataset))
+                    test_u = test_dataset[test_idx][1]
                     test_u_hat = vano(test_u.view(-1, 1, DATA_RES))[3].squeeze()
 
                     fig, ax = plt.subplots()
@@ -514,6 +533,8 @@ def train(i: int):
 
             if wandb_enabled:
                 wandb.log(log_dict, step=step)
+
+            plt.close()
 
             step += 1
 
