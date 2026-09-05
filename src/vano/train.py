@@ -8,7 +8,13 @@ from pathlib import Path
 import torch
 from tqdm.auto import trange
 
-from .configs import Config
+from .configs import (
+    Config,
+    DecoderConfig,
+    EncoderConfig,
+    OptimConfig,
+    TrainingConfig,
+)
 from .data import TRAIN_SEED, load_dataset
 from .models.vano import VANO, elbo_loss
 
@@ -45,7 +51,7 @@ def train(cfg: Config, device="cuda", data=None, out_dir=None, progress=True,
 
     tc = cfg.training
     chunk = tc.mc_chunk or tc.num_mc_samples
-    history, start = [], time.time()
+    history, started_at = [], time.time()
     steps = trange(tc.max_steps, disable=not progress)
     for step in steps:
         idx = torch.randperm(len(data), device=device,
@@ -54,8 +60,8 @@ def train(cfg: Config, device="cuda", data=None, out_dir=None, progress=True,
                           device=device, generator=generator)
         optimizer.zero_grad(set_to_none=True)
         totals = {}
-        for start in range(0, tc.num_mc_samples, chunk):
-            piece = eps[start : start + chunk]
+        for offset in range(0, tc.num_mc_samples, chunk):
+            piece = eps[offset : offset + chunk]
             weight = len(piece) / tc.num_mc_samples
             loss, parts = elbo_loss(model, data.u[idx], data.y, data.s[idx],
                                     data.w[idx], piece, cfg.beta)
@@ -78,7 +84,7 @@ def train(cfg: Config, device="cuda", data=None, out_dir=None, progress=True,
                 log_fn(record)
 
     if out_dir is not None:
-        save(model, cfg, history, out_dir, wall_time=time.time() - start)
+        save(model, cfg, history, out_dir, wall_time=time.time() - started_at)
     return model, history
 
 
@@ -95,14 +101,6 @@ def save(model, cfg, history, out_dir, wall_time=None):
 
 def load(out_dir, device="cuda"):
     """Rebuild a trained model from a run directory."""
-    from .configs import (
-        Config,
-        DecoderConfig,
-        EncoderConfig,
-        OptimConfig,
-        TrainingConfig,
-    )
-
     out_dir = Path(out_dir)
     raw = json.loads((out_dir / "config.json").read_text())
     cfg = Config(**{**raw,

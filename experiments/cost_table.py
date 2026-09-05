@@ -11,6 +11,13 @@ import json
 from _common import RUNS
 
 
+def _minutes(seconds):
+    """Wall time in minutes, or None when a run did not record a usable one."""
+    if seconds is None or seconds > 1e6:  # runs older than the timing fix
+        return None
+    return seconds / 60.0
+
+
 def rows():
     for path in sorted(RUNS.glob("*/*/history.json")):
         cfg = json.loads((path.parent / "config.json").read_text())
@@ -20,7 +27,7 @@ def rows():
             "latent_dim": cfg["latent_dim"],
             "parameters": meta["num_parameters"],
             "steps": cfg["training"]["max_steps"],
-            "minutes": (meta["wall_time_s"] or 0.0) / 60.0,
+            "minutes": _minutes(meta.get("wall_time_s")),
             "final_recon": meta["history"][-1]["recon_loss"],
         }
 
@@ -35,8 +42,9 @@ def main():
     for row in rows():
         if args.only and not any(k in row["run"] for k in args.only):
             continue
+        minutes = "n/a" if row["minutes"] is None else f"{row['minutes']:.1f}"
         print(f"| {row['run']:32s} | {row['parameters'] / 1e6:.3f}M "
-              f"| {row['steps']} | {row['minutes']:.1f} | {row['final_recon']:.3e} |")
+              f"| {row['steps']} | {minutes} | {row['final_recon']:.3e} |")
 
 
 if __name__ == "__main__":
