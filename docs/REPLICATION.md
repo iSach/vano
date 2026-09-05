@@ -187,4 +187,22 @@ with resolution.
 
 ## Cost
 
-<!-- RESULTS:COST -->
+One RTX PRO 6000 Blackwell, fp32 with TF32 matmuls, `experiments/cost_table.py`.
+
+| model | parameters | steps | wall time |
+| --- | --- | --- | --- |
+| GRF, n = 64 | 0.108 M | 40 000 | 2.0 min |
+| 2D Gaussian densities, linear, n = 32 | 0.086 M | 20 000 | 2.3 min |
+| 2D Gaussian densities, nonlinear, n = 32 | 0.090 M | 20 000 | 12.1 min |
+| Cahn-Hilliard VANO | 0.342 M | 20 000 | see note |
+| Cahn-Hilliard VAE, 64 / 128 / 256 | 0.186 / 0.483 / 1.669 M | 20 000 | see note |
+| InSAR | 11.13 M | 25 000 | see note |
+
+The parameter counts are exact. The Cahn-Hilliard wall times were lost to a
+timing bug (the training loop shadowed its own start time; fixed, and
+`cost_table.py` prints `n/a` rather than a nonsense duration for runs recorded
+before the fix) -- rerun those configs with `--force` to fill them in.
+
+The sweeps are kernel-launch bound rather than FLOP bound, which is why the
+figure scripts take a `--workers` flag: six training processes against one GPU
+finish a 60-run sweep in about the time two would.
