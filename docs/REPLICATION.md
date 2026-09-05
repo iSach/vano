@@ -49,6 +49,8 @@ measure of the theoretical ELBO are absorbed into `beta`.
    with plain Flax ones). We match the code, per benchmark.
 4. **Number of Cahn-Hilliard patterns.** The paper does not state the training
    set size; the release draws 4096 patterns from the 37523 available.
+5. **InSAR training length.** The paper says 20,000 iterations; the released
+   `volcano/configs/default.py` says 25,000. We follow the code.
 
 ## Deviations from the released code
 
