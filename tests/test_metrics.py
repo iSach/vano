@@ -49,3 +49,19 @@ def test_circular_statistics_on_known_fields():
     uniform = (torch.rand(4, 128, 128) * 2 - 1) * torch.pi
     assert (circular_variance(uniform) > 0.98).all()
     assert torch.isfinite(circular_skewness(uniform)).all()
+
+
+def test_released_mmd_estimator_carries_its_diagonal_offset():
+    """The paper's estimator keeps the Gram diagonal but divides by n(n-1).
+
+    That adds exactly 2/(n-1) to every value, which is over half of the numbers
+    Table 1 reports. We reproduce it for comparability and offer the unbiased
+    estimator alongside; this pins the relationship between the two.
+    """
+    torch.manual_seed(0)
+    n = 128
+    x, y = torch.randn(n, 32), torch.randn(n, 32)
+    released = mmd_curve(x, y)
+    unbiased = mmd_curve(x, y, unbiased=True)
+    assert torch.allclose(released - unbiased,
+                          torch.full_like(released, 2.0 / (n - 1)), atol=1e-9)

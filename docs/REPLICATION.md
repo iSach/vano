@@ -52,6 +52,38 @@ measure of the theoretical ELBO are absorbed into `beta`.
 5. **InSAR training length.** The paper says 20,000 iterations; the released
    `volcano/configs/default.py` says 25,000. We follow the code.
 
+## The generalised MMD estimator is biased, and the bias is over half the number
+
+The released `compute_mmd` sums the **full** Gram matrices -- diagonal included
+-- while dividing by `n(n-1)`:
+
+```python
+Xterm = 1./(n*(n-1))*jnp.sum(kXX)     # kXX carries k(x_i, x_i) = 1 on the diagonal
+```
+
+The unbiased estimator drops the diagonal; the biased one keeps it and divides
+by `n^2`. This does neither, so every value carries a spurious `+2/(n-1)`.
+Measured on our Cahn-Hilliard model:
+
+| | released form | unbiased | offset `2/(n-1)` | share of the reported value |
+| --- | --- | --- | --- | --- |
+| 64x64, n = 512   | 0.766 | 0.375 | 0.391 | 51 % |
+| 256x256, n = 256 | 1.464 | 0.680 | 0.784 | 54 % |
+
+Consequences for reading Table 1:
+
+- About half of every entry is a constant unrelated to the model. Comparisons
+  *between* models at one resolution are still valid -- they share the offset --
+  but the absolute values are not interpretable as an MMD.
+- The offset depends on `n`, and the released protocol uses 512 samples at 64
+  and 128 but **256 at 256x256**, so the bottom row carries twice the offset of
+  the rows above it. Corrected, the 64 -> 256 degradation is 1.81x rather than
+  the 1.91x the released estimator reports.
+
+We reproduce the released normalisation so our numbers are comparable to the
+published ones. `vano.metrics.mmd_curve` documents it at the call site; drop the
+Gram diagonals there for the unbiased estimator.
+
 ## Deviations from the released code
 
 1. **Train/test split of the Cahn-Hilliard set.** The release draws train and
@@ -76,9 +108,21 @@ measure of the theoretical ELBO are absorbed into `beta`.
    defaults.
 6. **The GRF covariance metric is reported under two conventions.** The release
    compares the learned covariance against the rank-`min(n, 32)` *truncation* of
-   the true covariance. We report that (`hs_error_truncated`) and also the error
-   against the full covariance (`hs_error_full`), alongside the optimal rank-`n`
-   truncation error, which is the floor no linear decoder can beat.
+   the true covariance -- so the reference operator moves with `n`, and points
+   on that curve are not commensurable: at n = 2 the model is asked to match a
+   rank-2 operator, at n = 64 the full one. We report that
+   (`hs_error_truncated`) and also the error against the full covariance
+   (`hs_error_full`), alongside the optimal rank-`n` truncation error, which is
+   the floor no linear decoder can beat.
+7. **`w = 1/||u||^2` is not in the paper's derivation.** Theorem 4.1's likelihood
+   has a fixed variance; the release rescales each function's reconstruction
+   term by its own norm, which makes the effective likelihood variance
+   sample-dependent. Practically motivated -- GRF and 2D-density magnitudes span
+   orders of magnitude -- but it breaks the correspondence to the function-space
+   ELBO the theory section derives.
+8. **The reconstruction term is a mean, not a quadrature.** That is the right
+   discretisation of the `L^2` norm on a uniform grid, but the GRF samples at
+   Gauss-Legendre nodes and still weights them uniformly.
 
 ## Results
 
