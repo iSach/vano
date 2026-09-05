@@ -43,6 +43,17 @@ def optimal_truncation_error(evals, efuns, rank):
             torch.linalg.norm(full)).item()
 
 
+def effective_rank(learned_basis, threshold=1e-3):
+    """Number of learned directions carrying more than ``threshold`` of the top one.
+
+    The KL term prices every active latent direction, so the model keeps only
+    the components whose eigenvalue buys back more reconstruction than they
+    cost -- the learned basis is far sparser than its nominal width.
+    """
+    evals = torch.linalg.eigvalsh(covariance_from_basis(learned_basis).double())
+    return int((evals > threshold * evals.max()).sum())
+
+
 def basis_eigenfunctions(learned_basis, num=8):
     """Leading eigenpairs of ``C_hat``, sign-fixed, for plotting against the KL basis."""
     cov = covariance_from_basis(learned_basis)

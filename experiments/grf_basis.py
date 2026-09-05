@@ -44,9 +44,13 @@ def collect(device):
 
 
 def figure3(rows, device, out_dir):
-    fig, (left, right) = plt.subplots(1, 2, figsize=(11.5, 4.2))
+    """Left: covariance error vs latent size.  Right: learned vs optimal basis."""
+    fig = plt.figure(figsize=(12.5, 5.6))
+    spec = fig.add_gridspec(3, 2, width_ratios=[1.25, 1.0], hspace=0.55,
+                            wspace=0.28)
 
-    # -- left: error vs latent dimension, against both reference covariances --
+    # -- left: error vs latent dimension, under both reference conventions --
+    left = fig.add_subplot(spec[:, 0])
     x, evals, efuns = _analytic(device)
     for key, label, style in (
         ("hs_error_truncated", "VANO, vs rank-$n$ truncation", "-o"),
@@ -63,31 +67,46 @@ def figure3(rows, device, out_dir):
     left.set_yscale("log")
     left.set_xticks(LATENT_DIMS, [str(n) for n in LATENT_DIMS])
     left.set_xlabel("latent dimension $n$")
-    left.set_ylabel(r"$\|C-\hat{C}\|_F\,/\,\|C\|_F$")
+    left.set_ylabel(r"$\|\Gamma-\hat{\Gamma}\|_{HS}\,/\,\|\Gamma\|_{HS}$")
     left.set_title("Covariance recovery")
-    left.legend(fontsize=10)
+    left.legend(fontsize=10, loc="lower left")
     left.grid(alpha=0.3)
+    # The KL term prices each active direction, so the model keeps far fewer
+    # than n of them; annotate how many it actually uses.
+    rank, _ = _aggregate(rows, "effective_rank")
+    mean, _ = _aggregate(rows, "hs_error_truncated")
+    for n, value, r in zip(LATENT_DIMS, mean, rank):
+        left.annotate(f"rank {r:.1f}", (n, value), textcoords="offset points",
+                      xytext=(0, 11), ha="center", fontsize=9, color="0.35")
 
-    # -- right: learned basis vs the analytic KL basis --
+    # -- right: the two bases, as in the paper --
     model, _ = load_run(REFERENCE, device)
     tau = model.decoder.trunk(x).cpu()
-    # tau spans the learned subspace in an arbitrary basis; diagonalising the
-    # induced covariance puts it in the same gauge as the analytic eigenpairs.
-    learned_evals, learned = basis_eigenfunctions(tau, num=4)
     kl = (efuns * evals.sqrt()).cpu()
     xs = x.squeeze(-1).cpu()
-    for k in range(4):
-        colour = f"C{k}"
-        right.plot(xs, kl[:, k], colour, lw=2.2,
-                   label="Karhunen-Loeve" if k == 0 else None)
-        right.plot(xs, learned[:, k] * learned_evals[k].sqrt(), colour,
-                   ls="--", lw=2.2, label="VANO (learned)" if k == 0 else None)
-    right.set_xlabel("$x$")
-    right.set_ylabel(r"$\sqrt{\lambda_k}\,\phi_k(x)$")
-    right.set_title("Leading basis functions")
-    right.legend(fontsize=10)
 
-    fig.tight_layout()
+    top = fig.add_subplot(spec[0, 1])
+    top.plot(xs, kl, lw=1.8)
+    top.set_ylabel(r"$\sqrt{\lambda_i}\,\phi_i(x)$")
+    top.set_title(f"Optimal (KL) basis, {kl.shape[1]} terms", fontsize=13)
+
+    middle = fig.add_subplot(spec[1, 1], sharey=top)
+    middle.plot(xs, tau, lw=1.8)
+    middle.set_xlabel("$x$")
+    middle.set_ylabel(r"$\tau_j(x)$")
+    middle.set_title(f"Learned basis, $n={REFERENCE.latent_dim}$", fontsize=13)
+
+    # Spectrum: the quantitative version of "the bases agree".
+    bottom = fig.add_subplot(spec[2, 1])
+    learned_evals, _ = basis_eigenfunctions(tau, num=8)
+    bottom.semilogy(np.arange(1, 9), evals[:8].cpu(), "ko-", label="$\\lambda_i$")
+    bottom.semilogy(np.arange(1, 9), learned_evals.clamp_min(1e-16), "C3s--",
+                    label=r"eigenvalues of $\hat{\Gamma}$")
+    bottom.set_xlabel("component $i$")
+    bottom.set_ylabel("eigenvalue")
+    bottom.legend(fontsize=10)
+    bottom.grid(alpha=0.3)
+
     save(fig, out_dir / "figure3_grf_covariance.png")
 
 

@@ -8,6 +8,7 @@ from .data.insar import phase
 from .metrics import (
     circular_skewness,
     circular_variance,
+    effective_rank,
     generalised_mmd,
     hilbert_schmidt_error,
     optimal_truncation_error,
@@ -65,6 +66,7 @@ def covariance_error(model, num_points=128, num_eigenpairs=32, device="cuda"):
                                                     model.latent_dim),
         "hs_error_full": hilbert_schmidt_error(tau, evals, efuns),
         "hs_error_optimal": optimal_truncation_error(evals, efuns, rank),
+        "effective_rank": effective_rank(tau),
     }
 
 
