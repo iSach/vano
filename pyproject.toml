@@ -1,0 +1,81 @@
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vano"
+version = "0.1.0"
+requires-python = ">=3.10"
+description = "Variational Autoencoding Neural Operators (Seidman et al., ICML 2023) — PyTorch reimplementation"
+authors = [{ name = "Sacha Lewin", email = "sacha.lewin@uliege.be" }]
+classifiers = [
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Natural Language :: English",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+]
+license = { file = "LICENSE" }
+readme = "README.md"
+dependencies = [
+  "matplotlib",
+  "numpy",
+  "pyyaml",
+  "scipy",
+  "tqdm",
+]
+
+[project.optional-dependencies]
+cpu = ["torch>=2.7"]
+cu128 = ["torch>=2.7"]
+wandb = ["wandb>=0.16"]
+
+[project.urls]
+paper = "https://arxiv.org/abs/2302.10351"
+reference-implementation = "https://github.com/PredictiveIntelligenceLab/VANO"
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[project.scripts]
+# One trainer, one evaluator. Figures live in experiments/, data tooling in scripts/.
+vano-train = "vano.cli.train:main"
+vano-evaluate = "vano.cli.evaluate:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["vano*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+  "cuda: requires a GPU",
+  "data: requires a dataset on disk",
+  "slow: takes more than a few seconds",
+]
+
+[tool.ruff]
+line-length = 88
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
+
+[tool.uv]
+conflicts = [[{ extra = "cpu" }, { extra = "cu128" }]]
+
+[tool.uv.sources]
+torch = [
+  { index = "pytorch-cpu", extra = "cpu" },
+  { index = "pytorch-cu128", extra = "cu128" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
