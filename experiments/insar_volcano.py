@@ -46,18 +46,29 @@ def figure5(data, model, device, out_dir):
     gano = insar.load_gano_samples().to(device)
     series = {"Ground truth": data.u, "VANO": vano, "GANO": gano}
 
-    fig, axes = plt.subplots(1, 2, figsize=(11.5, 4.2))
-    stats = {}
+    summaries, stats = {}, {}
     for name, fields in series.items():
         angles = phase(fields)
         variance = circular_variance(angles).cpu().numpy()
         skewness = circular_skewness(angles).cpu().numpy()
-        stats[name] = {"circular_variance_mean": float(variance.mean()),
-                       "circular_skewness_mean": float(skewness.mean())}
-        axes[0].hist(variance, bins=np.linspace(0.0, 1.0, 30), histtype="step",
-                     lw=2.2, density=True, label=name)
-        axes[1].hist(skewness, bins=np.linspace(-3.0, 3.0, 40), histtype="step",
-                     lw=2.2, density=True, label=name)
+        # Skewness is undefined for a field of constant phase (R = 1); a few
+        # GANO samples are exactly that, so drop them and say how many.
+        finite = np.isfinite(skewness)
+        summaries[name] = {"circular_variance_mean": float(variance.mean()),
+                           "circular_skewness_mean": float(skewness[finite].mean()),
+                           "num_samples": int(len(variance)),
+                           "num_degenerate": int((~finite).sum())}
+        stats[name] = (variance, skewness[finite])
+
+    span = np.abs(np.concatenate([s for _, s in stats.values()])).max()
+    bins = {0: np.linspace(0.0, 1.0, 30),
+            1: np.linspace(-min(span, 5.0), min(span, 5.0), 40)}
+    fig, axes = plt.subplots(1, 2, figsize=(11.5, 4.2))
+    for name, (variance, skewness) in stats.items():
+        axes[0].hist(variance, bins=bins[0], histtype="step", lw=2.2,
+                     density=True, label=name)
+        axes[1].hist(skewness, bins=bins[1], histtype="step", lw=2.2,
+                     density=True, label=name)
     axes[0].set_xlabel("circular variance")
     axes[1].set_xlabel("circular skewness")
     for ax in axes:
@@ -67,7 +78,7 @@ def figure5(data, model, device, out_dir):
     fig.suptitle("Directional statistics of the interferogram distribution")
     fig.tight_layout()
     save(fig, out_dir / "figure5_insar_circular_statistics.png")
-    return stats
+    return summaries
 
 
 def figure14(data, model, out_dir, num=4):

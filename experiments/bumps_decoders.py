@@ -32,6 +32,8 @@ SEEDS = tuple(range(5))
 DECODERS = {"linear": "Linear decoder", "concat": "Nonlinear decoder"}
 NUM_MMD_SAMPLES = 512
 SUPERRES = 256
+# The latent dimension the qualitative panels use, i.e. the paper's setting.
+SHOWCASE_LATENT = 32
 
 
 def configs():
@@ -118,14 +120,15 @@ def figures8_9(test, device, out_dir):
         show_field(axes[0, col], test.s[i, :, 0].reshape(*test.grid_shape).cpu())
     axes[0, 0].set_ylabel("Ground truth")
     for row, decoder in enumerate(DECODERS, start=1):
-        cfg = get_config(f"bumps_{decoder}").evolve(latent_dim=32, seed=0)
+        cfg = get_config(f"bumps_{decoder}").evolve(latent_dim=SHOWCASE_LATENT,
+                                                    seed=0)
         model, _ = load_run(cfg, device)
         pred = reconstruct(model, test[idx]).cpu()
         for col in range(len(idx)):
             show_field(axes[row, col],
                        pred[col, :, 0].reshape(*test.grid_shape))
         axes[row, 0].set_ylabel(DECODERS[decoder].split()[0])
-    fig.suptitle("Test reconstructions, $n=32$", y=0.98)
+    fig.suptitle(f"Test reconstructions, $n={SHOWCASE_LATENT}$", y=0.98)
     fig.tight_layout()
     save(fig, out_dir / "figures8_9_bumps_reconstructions.png")
 
@@ -134,7 +137,8 @@ def figures10_11(device, out_dir):
     grid = unit_grid(SUPERRES, dim=2, device=device)
     fig, axes = plt.subplots(2, 5, figsize=(11.0, 4.6))
     for row, decoder in enumerate(DECODERS):
-        cfg = get_config(f"bumps_{decoder}").evolve(latent_dim=32, seed=0)
+        cfg = get_config(f"bumps_{decoder}").evolve(latent_dim=SHOWCASE_LATENT,
+                                                    seed=0)
         model, _ = load_run(cfg, device)
         samples = sample(model, 5, grid, seed=11).cpu()
         for col in range(5):
