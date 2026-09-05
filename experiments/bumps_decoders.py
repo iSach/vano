@@ -57,8 +57,10 @@ def collect(device):
 
 
 def figure4(rows, test, device, out_dir):
-    fig = plt.figure(figsize=(12.5, 4.4))
-    curve = fig.add_subplot(1, 2, 1)
+    fig = plt.figure(figsize=(13.0, 4.6))
+    spec = fig.add_gridspec(2, 6, width_ratios=[2.6, 0.25, 1, 1, 1, 1])
+
+    curve = fig.add_subplot(spec[:, 0])
     for i, (decoder, label) in enumerate(DECODERS.items()):
         mean, std = _aggregate(rows, decoder, "mmd")
         curve.errorbar(LATENT_DIMS, mean, yerr=std, fmt=f"-{'os'[i]}",
@@ -73,21 +75,19 @@ def figure4(rows, test, device, out_dir):
     curve.grid(alpha=0.3)
 
     # Samples from the best latent dimension of each decoder.
-    gallery = fig.add_subplot(1, 2, 2)
-    gallery.axis("off")
-    inner = gallery.get_subplotspec().subgridspec(2, 4, wspace=0.06, hspace=0.16)
     for row, decoder in enumerate(DECODERS):
         best = _best_latent(rows, decoder)
         cfg = get_config(f"bumps_{decoder}").evolve(latent_dim=best, seed=0)
         model, _ = load_run(cfg, device)
         samples = sample(model, 4, test.y, seed=7).cpu()
         for col in range(4):
-            ax = fig.add_subplot(inner[row, col])
+            ax = fig.add_subplot(spec[row, col + 2])
             show_field(ax, samples[col, :, 0].reshape(*test.grid_shape))
             if col == 0:
                 ax.set_ylabel(f"{DECODERS[decoder].split()[0]}\n$n={best}$",
                               fontsize=11)
-    gallery.set_title("Generated samples")
+            if row == 0 and col == 1:
+                ax.set_title("Generated samples", fontsize=14, loc="left")
     fig.tight_layout()
     save(fig, out_dir / "figure4_bumps_mmd.png")
 

@@ -6,8 +6,6 @@ import os
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
-import torch
-
 from vano.train import load, train
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -31,7 +29,6 @@ def train_one(cfg, device="cuda", force=False):
 
 def _worker(payload):
     cfg, device, force = payload
-    torch.set_float32_matmul_precision("high")
     return str(train_one(cfg, device, force))
 
 

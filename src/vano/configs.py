@@ -46,6 +46,11 @@ class TrainingConfig:
     num_mc_samples: int = 4
     max_steps: int = 20000
     log_every: int = 100
+    # Monte-Carlo draws per backward pass.  ``None`` does all of them at once;
+    # a smaller value accumulates gradients over sub-batches, which is exact
+    # (the objective is a mean over the draws) and bounds activation memory.
+    # Only the InSAR decoder is large enough to need it.
+    mc_chunk: int | None = None
 
 
 @dataclass
@@ -148,7 +153,8 @@ def _insar():
                      "max_res": 1024, "hash_size": 2**16, "num_features": 8},
             weight_fact=True,
         ),
-        training=TrainingConfig(batch_size=16, num_mc_samples=4, max_steps=25000),
+        training=TrainingConfig(batch_size=16, num_mc_samples=4, max_steps=25000,
+                                mc_chunk=1),
     )
 
 

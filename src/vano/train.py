@@ -24,8 +24,14 @@ def make_optimizer(model, cfg):
 
 
 def train(cfg: Config, device="cuda", data=None, out_dir=None, progress=True,
-          log_fn=None):
-    """Train one model and return it together with its loss history."""
+          log_fn=None, matmul_precision="high"):
+    """Train one model and return it together with its loss history.
+
+    ``matmul_precision`` defaults to ``"high"`` (TF32), which is also JAX's
+    default on this hardware, so the reference runs used it too.  Set it to
+    ``"highest"`` for strict fp32; the InSAR model is roughly 3x slower then.
+    """
+    torch.set_float32_matmul_precision(matmul_precision)
     torch.manual_seed(cfg.seed)
     if data is None:
         data = load_dataset(cfg.dataset, seed=cfg.seed, **cfg.dataset_kwargs)
@@ -36,6 +42,7 @@ def train(cfg: Config, device="cuda", data=None, out_dir=None, progress=True,
     generator = torch.Generator(device=device).manual_seed(cfg.seed + 1)
 
     tc = cfg.training
+    chunk = tc.mc_chunk or tc.num_mc_samples
     history, start = [], time.time()
     steps = trange(tc.max_steps, disable=not progress)
     for step in steps:
@@ -43,16 +50,24 @@ def train(cfg: Config, device="cuda", data=None, out_dir=None, progress=True,
                              generator=generator)[: tc.batch_size]
         eps = torch.randn(tc.num_mc_samples, tc.batch_size, cfg.latent_dim,
                           device=device, generator=generator)
-        loss, parts = elbo_loss(model, data.u[idx], data.y, data.s[idx],
-                                data.w[idx], eps, cfg.beta)
         optimizer.zero_grad(set_to_none=True)
-        loss.backward()
+        totals = {}
+        for start in range(0, tc.num_mc_samples, chunk):
+            piece = eps[start : start + chunk]
+            weight = len(piece) / tc.num_mc_samples
+            loss, parts = elbo_loss(model, data.u[idx], data.y, data.s[idx],
+                                    data.w[idx], piece, cfg.beta)
+            (weight * loss).backward()
+            # Kept on device: reading these every step would stall the queue,
+            # and these models are launch bound.
+            for key, value in {"loss": loss.detach(), **parts}.items():
+                totals[key] = totals.get(key, 0.0) + weight * value
         optimizer.step()
         scheduler.step()
 
         if step % tc.log_every == 0 or step == tc.max_steps - 1:
-            record = {"step": step, "loss": loss.item(),
-                      **{k: v.item() for k, v in parts.items()}}
+            record = {"step": step,
+                      **{k: v.item() for k, v in totals.items()}}
             history.append(record)
             if progress:
                 steps.set_postfix(recon=f"{record['recon_loss']:.2e}",
