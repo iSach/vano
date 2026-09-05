@@ -16,7 +16,7 @@ import torch
 from _common import base_parser, load_run, sweep
 
 from vano.configs import get_config
-from vano.data import grf
+from vano.data import TEST_SEED, grf
 from vano.evaluate import covariance_error, sample
 from vano.metrics import basis_eigenfunctions, optimal_truncation_error
 from vano.plotting import save, use_paper_style
@@ -93,7 +93,7 @@ def figure3(rows, device, out_dir):
 
 def figure6(device, out_dir):
     model, cfg = load_run(REFERENCE, device)
-    data = grf.load(2048, seed=1).to(device)
+    data = grf.load(2048, seed=TEST_SEED).to(device)
     samples = sample(model, 16, data.y, seed=123).squeeze(-1).cpu()
     xs = data.y.squeeze(-1).cpu()
 

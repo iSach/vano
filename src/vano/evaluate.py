@@ -2,7 +2,7 @@
 
 import torch
 
-from .data import load_dataset, unit_grid
+from .data import TEST_SEED, load_dataset, unit_grid
 from .data.grf import eigenpairs, legendre_nodes
 from .data.insar import phase
 from .metrics import (
@@ -95,12 +95,24 @@ def circular_statistics(fields):
             "circular_skewness": circular_skewness(angles)}
 
 
+def test_data(cfg):
+    """The held-out set for ``cfg``'s benchmark.
+
+    The two analytic benchmarks reserve a second random stream (the release uses
+    ``PRNGKey(1)``); Cahn-Hilliard has a real split; the InSAR release trains on
+    all 4096 interferograms and holds nothing out, so we score against the same
+    set it was trained on and say so.
+    """
+    if cfg.dataset in ("grf", "bumps"):
+        return load_dataset(cfg.dataset, seed=TEST_SEED, **cfg.dataset_kwargs)
+    if cfg.dataset == "cahn_hilliard":
+        return load_dataset(cfg.dataset, split="test", **cfg.dataset_kwargs)
+    return load_dataset(cfg.dataset, **cfg.dataset_kwargs)
+
+
 def evaluate(model, cfg, data=None, device="cuda"):
     """Every metric the paper reports for ``cfg``'s benchmark."""
-    if data is None:
-        split = {} if cfg.dataset in ("insar",) else {"seed": cfg.seed + 1000}
-        data = load_dataset(cfg.dataset, **{**split, **cfg.dataset_kwargs})
-    data = data.to(device)
+    data = (test_data(cfg) if data is None else data).to(device)
     metrics = {"relative_l2": relative_l2(data.s, reconstruct(model, data))}
 
     if cfg.dataset == "grf":

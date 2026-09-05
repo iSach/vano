@@ -22,7 +22,7 @@ import torch
 from _common import base_parser, load_run, sweep
 
 from vano.configs import get_config
-from vano.data import bumps, unit_grid
+from vano.data import TEST_SEED, TRAIN_SEED, bumps, unit_grid
 from vano.evaluate import reconstruct, relative_l2, sample
 from vano.metrics import generalised_mmd
 from vano.plotting import save, show_field, use_paper_style
@@ -40,7 +40,7 @@ def configs():
 
 
 def collect(device):
-    test = bumps.load(2048, seed=1).to(device)
+    test = bumps.load(2048, seed=TEST_SEED).to(device)
     targets = test.s[:NUM_MMD_SAMPLES]
     rows = []
     for decoder in DECODERS:
@@ -172,7 +172,7 @@ def main():
         (args.figures / "figure4_bumps_mmd.json").write_text(
             json.dumps(rows, indent=2))
         figure4(rows, test, args.device, args.figures)
-        figure7(bumps.load(2048, seed=0).to(args.device), args.figures)
+        figure7(bumps.load(2048, seed=TRAIN_SEED).to(args.device), args.figures)
         figures8_9(test, args.device, args.figures)
         figures10_11(args.device, args.figures)
 

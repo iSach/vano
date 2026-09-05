@@ -9,7 +9,7 @@ import torch
 from tqdm.auto import trange
 
 from .configs import Config
-from .data import load_dataset
+from .data import TRAIN_SEED, load_dataset
 from .models.vano import VANO, elbo_loss
 
 
@@ -34,7 +34,9 @@ def train(cfg: Config, device="cuda", data=None, out_dir=None, progress=True,
     torch.set_float32_matmul_precision(matmul_precision)
     torch.manual_seed(cfg.seed)
     if data is None:
-        data = load_dataset(cfg.dataset, seed=cfg.seed, **cfg.dataset_kwargs)
+        # cfg.seed is the model seed; the training set is the same for every
+        # seed in a sweep, as in the reference.
+        data = load_dataset(cfg.dataset, seed=TRAIN_SEED, **cfg.dataset_kwargs)
     data = data.to(device)
 
     model = VANO.from_config(cfg).to(device)
