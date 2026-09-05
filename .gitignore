@@ -9,9 +9,10 @@ dist/
 .ruff_cache/
 
 # Experiment output: datasets, checkpoints and rendered figures stay out of git.
-data/
-runs/
-figures/
+# Anchored, so they do not swallow src/vano/data/.
+/data/
+/runs/
+/figures/
 wandb/
 *.npy
 *.pt
