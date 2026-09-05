@@ -123,7 +123,37 @@ approximation of this GRF. Their model does the same thing ours does.
 
 ### Figure 4 -- 2D Gaussian densities, linear vs nonlinear decoder
 
-<!-- RESULTS:BUMPS -->
+Five seeds per (decoder, latent dimension); generalised MMD against 512
+held-out functions, and reconstruction relative `L2` on 512 held-out functions.
+
+| n | linear MMD | linear rel. `L2` | nonlinear MMD | nonlinear rel. `L2` |
+| --- | --- | --- | --- | --- |
+| 4   | 0.174 ± 0.013 | 0.657 | **0.0130 ± 0.0044** | 0.137 |
+| 32  | 0.128 ± 0.030 | 0.421 | **0.0078 ± 0.0014** | 0.141 |
+| 64  | 0.137 ± 0.013 | 0.428 | **0.0091 ± 0.0011** | 0.138 |
+| 128 | 0.147 ± 0.017 | 0.452 | **0.0111 ± 0.0017** | 0.144 |
+| 256 | 0.170 ± 0.082 | 0.670 | **0.0115 ± 0.0019** | 0.164 |
+| 512 | 0.449 ± 0.039 | 0.769 | 0.0624 ± 0.0553 | 0.308 |
+
+This is the paper's claim, quantitatively: the linear decoder stays above 0.10
+even at n = 128 (we get 0.147), while the nonlinear decoder is already below
+0.03 at n = 32 (0.0078). The separation is about 16x in MMD and 3x in
+reconstruction error, and no amount of extra latent capacity closes it -- which
+is the point, since the family is a two-parameter manifold that simply is not
+linear.
+
+Figure 7 shows why: the PCA spectrum of the training set decays roughly like a
+straight line on a log scale, so a linear representation needs hundreds of
+components to capture a family with two degrees of freedom.
+
+Figures 8-9 show the failure concretely: the linear decoder reconstructs every
+bump at roughly the same width, losing the narrow ones entirely, while the
+nonlinear decoder gets both position and width. Figures 10-11 decode the same
+models on a 256x256 grid after training at 48x48; the nonlinear samples stay
+crisp.
+
+Both decoders degrade at n = 512, where the encoder's Gaussian head is wider
+than the 576-unit feature vector it reads from.
 
 ### Table 1 -- Cahn-Hilliard, generalised MMD (x100)
 
