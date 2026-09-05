@@ -64,6 +64,7 @@ into `figures/`:
 | `experiments/bumps_decoders.py` | Figure 4 (MMD, linear vs nonlinear), Figures 7–11 |
 | `experiments/cahn_hilliard_superres.py` | Table 1, Figures 12–13 (super-resolution vs a discretise-first VAE) |
 | `experiments/insar_volcano.py` | Figure 5 (circular statistics vs GANO), Figures 14–16 |
+| `experiments/cost_table.py` | Appendix Tables 3–4 (parameters and training cost) |
 
 ```bash
 uv run python experiments/grf_basis.py --workers 8

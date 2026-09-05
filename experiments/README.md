@@ -17,6 +17,7 @@ uv run python experiments/insar_volcano.py
 | `bumps_decoders.py` | Figure 4, Figures 7–11 | 2 decoders x 6 latent dims x 5 seeds |
 | `cahn_hilliard_superres.py` | Table 1, Figures 12–13 | 1 VANO + 3 VAE baselines |
 | `insar_volcano.py` | Figure 5, Figures 14–16 | 1 VANO (GANO samples come from the authors' release) |
+| `cost_table.py` | Appendix Tables 3–4 | nothing; it reads the runs that exist |
 
 `--workers N` runs `N` training processes against the same GPU. The sweep models
 are small and kernel-launch bound, so this scales close to linearly; use `1` for
