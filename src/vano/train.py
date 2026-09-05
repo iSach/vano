@@ -83,6 +83,10 @@ def train(cfg: Config, device="cuda", data=None, out_dir=None, progress=True,
             if log_fn is not None:
                 log_fn(record)
 
+        if (out_dir is not None and tc.save_every
+                and (step + 1) % tc.save_every == 0):
+            save(model, cfg, history, out_dir, wall_time=time.time() - started_at)
+
     if out_dir is not None:
         save(model, cfg, history, out_dir, wall_time=time.time() - started_at)
     return model, history

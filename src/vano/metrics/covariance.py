@@ -62,6 +62,10 @@ def basis_eigenfunctions(learned_basis, num=8):
     # eigh returns unit-norm discrete vectors; rescale to the L^2 normalisation
     # of the analytic eigenfunctions, and fix the sign by the first extremum.
     evecs = evecs * learned_basis.shape[0] ** 0.5
-    peak = evecs.abs().argmax(dim=0)
-    sign = torch.sign(evecs[peak, torch.arange(num, device=evecs.device)])
+    # Eigenvectors are defined up to a sign; adopt the analytic convention that
+    # a basis function starts out positive.  Keying on the *first* significant
+    # extremum keeps this stable for the odd modes, whose two extrema tie.
+    significant = evecs.abs() > 0.5 * evecs.abs().max(dim=0, keepdim=True).values
+    first = significant.float().argmax(dim=0)
+    sign = torch.sign(evecs[first, torch.arange(num, device=evecs.device)])
     return evals.to(learned_basis.dtype), (evecs * sign).to(learned_basis.dtype)

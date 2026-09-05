@@ -51,6 +51,9 @@ class TrainingConfig:
     # (the objective is a mean over the draws) and bounds activation memory.
     # Only the InSAR decoder is large enough to need it.
     mc_chunk: int | None = None
+    # Checkpoint and flush the loss history this often.  Only matters for runs
+    # long enough that you want to watch them; ``None`` writes once, at the end.
+    save_every: int | None = None
 
 
 @dataclass
@@ -154,7 +157,7 @@ def _insar():
             weight_fact=True,
         ),
         training=TrainingConfig(batch_size=16, num_mc_samples=4, max_steps=25000,
-                                mc_chunk=1),
+                                mc_chunk=1, save_every=1000),
     )
 
 

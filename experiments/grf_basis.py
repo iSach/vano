@@ -17,7 +17,7 @@ from _common import base_parser, load_run, sweep
 
 from vano.configs import get_config
 from vano.data import TEST_SEED, grf
-from vano.evaluate import covariance_error, sample
+from vano.evaluate import covariance_error, reconstruct, relative_l2, sample
 from vano.metrics import basis_eigenfunctions, optimal_truncation_error
 from vano.plotting import save, use_paper_style
 
@@ -32,13 +32,16 @@ def configs():
 
 
 def collect(device):
-    """Hilbert-Schmidt errors for every (latent dimension, seed) pair."""
+    """Covariance and reconstruction error for every (latent dim, seed) pair."""
+    test = grf.load(2048, seed=TEST_SEED).to(device)
     rows = []
     for n in LATENT_DIMS:
         for seed in SEEDS:
             cfg = REFERENCE.evolve(latent_dim=n, seed=seed)
             model, _ = load_run(cfg, device)
             rows.append({"latent_dim": n, "seed": seed,
+                         "relative_l2": relative_l2(test.s,
+                                                    reconstruct(model, test)),
                          **covariance_error(model, device=device)})
     return rows
 
@@ -53,22 +56,25 @@ def figure3(rows, device, out_dir):
     left = fig.add_subplot(spec[:, 0])
     x, evals, efuns = _analytic(device)
     for key, label, style in (
-        ("hs_error_truncated", "VANO, vs rank-$n$ truncation", "-o"),
-        ("hs_error_full", "VANO, vs full covariance", "--s"),
+        ("hs_error_truncated", "covariance, vs rank-$n$ truncation", "-o"),
+        ("hs_error_full", "covariance, vs full", "--s"),
+        ("relative_l2", "reconstruction, relative $L^2$", "-^"),
     ):
         mean, std = _aggregate(rows, key)
         left.errorbar(LATENT_DIMS, mean, yerr=std, fmt=style, capsize=4,
                       label=label)
-    floor = [optimal_truncation_error(evals, efuns, min(n, efuns.shape[1]))
-             for n in LATENT_DIMS]
-    left.plot(LATENT_DIMS, np.maximum(floor, 1e-16), ":k",
+    # The floor is exactly zero once n reaches the 32 truncated eigenpairs, so
+    # only draw it where it means something.
+    floor = [(n, optimal_truncation_error(evals, efuns, n)) for n in LATENT_DIMS
+             if n < efuns.shape[1]]
+    left.plot([n for n, _ in floor], [v for _, v in floor], ":k",
               label="optimal rank-$n$ (KL) truncation")
     left.set_xscale("log", base=2)
     left.set_yscale("log")
     left.set_xticks(LATENT_DIMS, [str(n) for n in LATENT_DIMS])
     left.set_xlabel("latent dimension $n$")
-    left.set_ylabel(r"$\|\Gamma-\hat{\Gamma}\|_{HS}\,/\,\|\Gamma\|_{HS}$")
-    left.set_title("Covariance recovery")
+    left.set_ylabel("normalised error")
+    left.set_title("Covariance recovery and reconstruction")
     left.legend(fontsize=10, loc="lower left")
     left.grid(alpha=0.3)
     # The KL term prices each active direction, so the model keeps far fewer
@@ -77,7 +83,8 @@ def figure3(rows, device, out_dir):
     mean, _ = _aggregate(rows, "hs_error_truncated")
     for n, value, r in zip(LATENT_DIMS, mean, rank):
         left.annotate(f"rank {r:.1f}", (n, value), textcoords="offset points",
-                      xytext=(0, 11), ha="center", fontsize=9, color="0.35")
+                      xytext=(0, -16), ha="center", fontsize=9, color="0.35")
+    left.set_ylim(1e-4, 1.0)
 
     # -- right: the two bases, as in the paper --
     model, _ = load_run(REFERENCE, device)
