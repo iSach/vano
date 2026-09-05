@@ -1,7 +1,6 @@
 """Helpers shared by the figure scripts: caching runs, sweeping, output paths."""
 
 import argparse
-import json
 import os
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
@@ -48,9 +47,6 @@ def sweep(configs, workers=1, device="cuda", force=False):
 def load_run(cfg, device="cuda"):
     return load(run_dir(cfg), device=device)
 
-
-def history(cfg):
-    return json.loads((run_dir(cfg) / "history.json").read_text())
 
 
 def base_parser(description):
