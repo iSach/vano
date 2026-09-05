@@ -18,9 +18,9 @@ classifiers = [
 license = { file = "LICENSE" }
 readme = "README.md"
 dependencies = [
+  "gdown",
   "matplotlib",
   "numpy",
-  "pyyaml",
   "scipy",
   "tqdm",
 ]
@@ -28,7 +28,6 @@ dependencies = [
 [project.optional-dependencies]
 cpu = ["torch>=2.7"]
 cu128 = ["torch>=2.7"]
-wandb = ["wandb>=0.16"]
 
 [project.urls]
 paper = "https://arxiv.org/abs/2302.10351"

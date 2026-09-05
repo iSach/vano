@@ -75,9 +75,7 @@ class Config:
                 flat[key] = value
         for group, values in nested.items():
             flat[group] = replace(getattr(self, group), **values)
-        cfg = replace(self, **flat)
-        # Keep the latent dimension consistent across the pieces that use it.
-        return cfg
+        return replace(self, **flat)
 
 
 def _grf():
