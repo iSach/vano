@@ -187,7 +187,35 @@ with resolution.
 
 ### Figure 5 -- InSAR, directional statistics
 
-<!-- RESULTS:INSAR -->
+All 4096 interferograms, 4096 samples from each model. GANO is not retrained:
+these are the samples the authors ship with the release. `W_1` is the
+1-Wasserstein distance between the model's distribution of a statistic and the
+ground truth's -- the paper compares the histograms by eye, and it is worth
+saying which one is actually closer.
+
+| | circular variance (mean) | `W_1` | circular skewness (mean) | `W_1` |
+| --- | --- | --- | --- | --- |
+| ground truth | 0.427 | — | -0.0075 | — |
+| VANO (ours) | 0.316 | **0.111** | **-0.0169** | 0.375 |
+| GANO (release) | 0.316 | 0.111 | -0.1810 | **0.268** |
+
+The two summaries disagree, so both are reported. VANO's *mean* circular
+skewness is an order of magnitude closer to the data than GANO's (-0.017 vs
+-0.181), which is the paper's claim; but GANO's skewness *distribution* is
+slightly closer in `W_1`, because the ground truth is sharply peaked at zero and
+GANO's histogram is the narrower of the two. On circular variance the two models
+are indistinguishable.
+
+Both models under-disperse: neither reproduces the mass the data carries at
+circular variance near 1, which corresponds to the fully incoherent
+interferograms. Figure 14 shows why for VANO -- the model reconstructs the
+large-scale deformation and smooths the speckle away, so the residual is exactly
+the incoherent pixels.
+
+Qualitatively (Figures 15-16) the difference is stark and matches the paper:
+VANO's samples read as smooth deformation fields, while GANO's carry the
+periodic striping artefact its published samples are known for. VANO has 11.13 M
+parameters here.
 
 ## Cost
 
@@ -200,7 +228,7 @@ One RTX PRO 6000 Blackwell, fp32 with TF32 matmuls, `experiments/cost_table.py`.
 | 2D Gaussian densities, nonlinear, n = 32 | 0.090 M | 20 000 | 12.1 min |
 | Cahn-Hilliard VANO | 0.342 M | 20 000 | 7.6 min |
 | Cahn-Hilliard VAE, 64 / 128 / 256 | 0.186 / 0.483 / 1.669 M | 20 000 | 1.4 min each |
-| InSAR | 11.13 M | 25 000 | see note |
+| InSAR | 11.13 M | 25 000 | 185 min |
 
 VANO costs about 5x a discretise-first VAE per step here, because it evaluates a
 pointwise decoder at every query point rather than one transposed-convolution

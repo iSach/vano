@@ -20,6 +20,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from _common import base_parser, load_run, sweep
+from scipy.stats import wasserstein_distance
 
 from vano.configs import get_config
 from vano.data import insar
@@ -60,15 +61,26 @@ def figure5(data, model, device, out_dir):
                            "num_degenerate": int((~finite).sum())}
         stats[name] = (variance, skewness[finite])
 
+    # The paper compares these statistics by eye; a Wasserstein distance to the
+    # ground-truth distribution says which model is actually closer.
+    truth = stats["Ground truth"]
+    for name in ("VANO", "GANO"):
+        for i, key in enumerate(("circular_variance", "circular_skewness")):
+            summaries[name][f"{key}_wasserstein"] = float(
+                wasserstein_distance(stats[name][i], truth[i]))
+
     span = np.abs(np.concatenate([s for _, s in stats.values()])).max()
     bins = {0: np.linspace(0.0, 1.0, 30),
             1: np.linspace(-min(span, 5.0), min(span, 5.0), 40)}
     fig, axes = plt.subplots(1, 2, figsize=(11.5, 4.2))
     for name, (variance, skewness) in stats.items():
-        axes[0].hist(variance, bins=bins[0], histtype="step", lw=2.2,
-                     density=True, label=name)
-        axes[1].hist(skewness, bins=bins[1], histtype="step", lw=2.2,
-                     density=True, label=name)
+        for i, values in enumerate((variance, skewness)):
+            suffix = ""
+            if name != "Ground truth":
+                key = ("circular_variance", "circular_skewness")[i]
+                suffix = f"  ($W_1$ = {summaries[name][key + '_wasserstein']:.3f})"
+            axes[i].hist(values, bins=bins[i], histtype="step", lw=2.2,
+                         density=True, label=name + suffix)
     axes[0].set_xlabel("circular variance")
     axes[1].set_xlabel("circular skewness")
     for ax in axes:
